@@ -1,0 +1,1 @@
+# ansible-collection-compliance-windows-2016
