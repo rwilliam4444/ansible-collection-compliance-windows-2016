@@ -1,0 +1,19 @@
+---
+galaxy_info:
+  author: Richard M. Williams
+  role_name: compliance-windows-control-panel-policy-2016
+  description: Win 2016 Chck & Rmdtion for the CIS Control Panel Policy section.
+  company: IBM Corp
+  license: IBM Intellectual Property
+  min_ansible_version: 1.8
+  platforms:
+    - name: Windows
+      versions:
+        - 2008 and higher
+  galaxy_tags:
+    - windows
+    - compliance
+    - server
+    - system
+    - cis
+dependencies: []

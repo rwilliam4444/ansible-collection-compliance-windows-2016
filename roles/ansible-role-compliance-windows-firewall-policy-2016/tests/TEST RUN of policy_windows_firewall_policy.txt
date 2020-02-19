@@ -1,0 +1,581 @@
+﻿[root@oc2685343477 ansible]# ansible-playbook policy_windows_firewall_policy.yml
+
+PLAY [win] *************************************************************************************************************************************************************************************************
+
+TASK [Gathering Facts] *************************************************************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.1.1 (L1) Ensure 'Windows Firewall: Domain: Firewall state' is set to 'On (recommended)' (Scored)] ****************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : set_fact] **********************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The EnableFirewall setting (9.1.1) is Compliant:'1'. It matches the CIS value: '1'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.1.1 (L1) Ensure 'Windows Firewall: Domain: Firewall state' is set to 'On (recommended)' (Scored)] ****************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.1.2 (L1) Ensure 'Windows Firewall: Domain: Inbound connections' is set to 'Block (default)' (Scored)] ************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : set_fact] **********************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The DefaultInboundAction setting (9.1.2) is Compliant:'1'. It matches the CIS value: '1'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.1.2 (L1) Ensure 'Windows Firewall: Domain: Inbound connections' is set to 'Block (default)' (Scored)] ************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.1.3 (L1) Ensure 'Windows Firewall: Domain: Outbound connections' is set to 'Allow (default)' (Scored)] ***********************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : set_fact] **********************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The DefaultOutboundAction setting (9.1.3) is Compliant:'0'. It matches the CIS value: '0'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.1.3 (L1) Ensure 'Windows Firewall: Domain: Outbound connections' is set to 'Allow (default)' (Scored)] ***********************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.1.4 (L1) Ensure 'Windows Firewall: Domain: Settings: Display a notification' is set to 'No' (Scored)] ************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : set_fact] **********************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The DisableNotifications setting (9.1.4) is Compliant:'0'. It matches the CIS value: '0'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.1.4 (L1) Ensure 'Windows Firewall: Domain: Settings: Display a notification' is set to 'No' (Scored)] ************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.1.5 (L1) Ensure 'Windows Firewall: Domain: Settings: Apply local firewall rules' is set to 'Yes (default)' (Scored)] *********************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : set_fact] **********************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The AllowLocalPolicyMerge setting (9.1.5) is Compliant:'0'. It matches the CIS value: '0'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.1.5 (L1) Ensure 'Windows Firewall: Domain: Settings: Apply local firewall rules' is set to 'Yes (default)' (Scored)] *********************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.1.6 (L1) Ensure 'Windows Firewall: Domain: Settings: Apply local connection security rules' is set to 'Yes (default)' (Scored)] **********************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : set_fact] **********************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The AllowLocalIPsecPolicyMerge setting (9.1.6) is Compliant:'0'. It matches the CIS value: '0'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.1.6 (L1) Ensure 'Windows Firewall: Domain: Settings: Apply local connection security rules' is set to 'Yes (default)' (Scored)] **********************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.1.7 (L1) Ensure 'Windows Firewall: Domain: Logging:] *************************************************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : set_fact] **********************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The LogFilePath setting (9.1.7) is Compliant:'C:\\windows\\system32\\logfiles\\firewall\\domainfirewall.log'. It matches the CIS value: 'C:\\windows\\system32\\logfiles\\firewall\\domainfirewall.log'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.1.7 (L1) Ensure 'Windows Firewall: Domain: Logging:] *************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.1.8 (L1) Ensure 'Windows Firewall: Domain: Logging: Size limit (KB)' is set to '16,384 KB or greater' (Scored)] **************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : set_fact] **********************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The LogFileSize setting (9.1.8) is Compliant:'16384'. It matches the CIS value or is higher: '16384'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.1.8 (L1) Ensure 'Windows Firewall: Domain: Logging: Size limit (KB)' is set to '16,384 KB or greater' (Scored)] **************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.1.9 (L1) Ensure 'Windows Firewall: Domain: Logging: Log dropped packets' is set to 'Yes' (Scored)] ***************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : set_fact] **********************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The LogDroppedPackets setting (9.1.9) is Compliant:'1'. It matches the CIS value: '1'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.1.9 (L1) Ensure 'Windows Firewall: Domain: Logging: Log dropped packets' is set to 'Yes' (Scored)] ***************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.1.10 (L1) Ensure 'Windows Firewall: Domain: Logging: Log successful connections' is set to 'Yes' (Scored)] *******************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : set_fact] **********************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The LogSuccessfulConnections setting (9.1.10) is Compliant:'1'. It matches the CIS value: '1'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.1.10 (L1) Ensure 'Windows Firewall: Domain: Logging: Log successful connections' is set to 'Yes' (Scored)] *******************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.2.1 (L1) Ensure 'Windows Firewall: Private: Firewall state' is set to 'On (recommended)' (Scored)] ***************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : set_fact] **********************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The EnableFirewall setting (9.2.1) is Compliant:'1'. It matches the CIS value: '1'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.2.1 (L1) Ensure 'Windows Firewall: Private: Firewall state' is set to 'On (recommended)' (Scored)] ***************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.2.2 (L1) Ensure 'Windows Firewall: Private: Inbound connections' is set to 'Block (default)' (Scored)] ***********************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : set_fact] **********************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The DefaultInboundAction setting (9.2.2) is Compliant:'1'. It matches the CIS value: '1'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.2.2 (L1) Ensure 'Windows Firewall: Private: Inbound connections' is set to 'Block (default)' (Scored)] ***********************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.2.3 (L1) Ensure 'Windows Firewall: Private: Outbound connections' is set to 'Allow (default)' (Scored)] **********************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : set_fact] **********************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The DefaultOutboundAction setting (9.2.3) is Compliant:'0'. It matches the CIS value: '0'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.2.3 (L1) Ensure 'Windows Firewall: Private: Outbound connections' is set to 'Allow (default)' (Scored)] **********************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.2.4 (L1) Ensure 'Windows Firewall: Private: Settings: Display a notification' is set to 'No' (Scored)] ***********************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : set_fact] **********************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The DisableNotifications setting (9.2.4) is Compliant:'0'. It matches the CIS value: '0'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.2.4 (L1) Ensure 'Windows Firewall: Private: Settings: Display a notification' is set to 'No' (Scored)] ***********************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.2.5 (L1) Ensure 'Windows Firewall: Private: Settings: Apply local firewall rules' is set to 'Yes (default)' (Scored)] ********************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : set_fact] **********************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The AllowLocalPolicyMerge setting (9.2.5) is Compliant:'0'. It matches the CIS value: '0'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.2.5 (L1) Ensure 'Windows Firewall: Private: Settings: Apply local firewall rules' is set to 'Yes (default)' (Scored)] ********************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.2.6 (L1) Ensure 'Windows Firewall: Private: Settings: Apply local connection security rules' is set to 'Yes (default)' (Scored)] *********************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : set_fact] **********************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The AllowLocalIPsecPolicyMerge setting (9.2.6) is Compliant:'0'. It matches the CIS value: '0'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.2.6 (L1) Ensure 'Windows Firewall: Private: Settings: Apply local connection security rules' is set to 'Yes (default)' (Scored)] *********************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.2.7 (L1) Ensure 'Windows Firewall: Private:] *********************************************************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : set_fact] **********************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The LogFilePath setting (9.2.7) is Compliant:'C:\\windows\\system32\\logfiles\\firewall\\privatefirewall.log'. It matches the CIS value: 'C:\\windows\\system32\\logfiles\\firewall\\privatefirewall.log'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.2.7 (L1) Ensure 'Windows Firewall: Private:] *********************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.2.8 (L1) Ensure 'Windows Firewall: Private: Logging: Size limit (KB)' is set to '16,384 KB or greater' (Scored)] *************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : set_fact] **********************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The LogFileSize setting (9.2.8) is Compliant:'16384'. It matches the CIS value or is higher: '16384'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.2.8 (L1) Ensure 'Windows Firewall: Private: Logging: Size limit (KB)' is set to '16,384 KB or greater' (Scored)] *************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.2.9 (L1) Ensure 'Windows Firewall: Private: Logging: Log dropped packets' is set to 'Yes' (Scored)] **************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : set_fact] **********************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The LogDroppedPackets setting (9.2.9) is Compliant:'1'. It matches the CIS value: '1'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.2.9 (L1) Ensure 'Windows Firewall: Private: Logging: Log dropped packets' is set to 'Yes' (Scored)] **************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.2.10 (L1) Ensure 'Windows Firewall: Private: Logging: Log successful connections' is set to 'Yes' (Scored)] ******************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : set_fact] **********************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The LogSuccessfulConnections setting (9.2.10) is Compliant:'1'. It matches the CIS value: '1'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.2.10 (L1) Ensure 'Windows Firewall: Private: Logging: Log successful connections' is set to 'Yes' (Scored)] ******************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.3.1 (L1) Ensure 'Windows Firewall: Public: Firewall state' is set to 'On (recommended)' (Scored)] ****************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : set_fact] **********************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The EnableFirewall setting (9.3.1) is Compliant:'1'. It matches the CIS value: '1'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.3.1 (L1) Ensure 'Windows Firewall: Public: Firewall state' is set to 'On (recommended)' (Scored)] ****************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.3.2 (L1) Ensure 'Windows Firewall: Public: Inbound connections' is set to 'Block (default)' (Scored)] ************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : set_fact] **********************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The DefaultInboundAction setting (9.3.2) is Compliant:'1'. It matches the CIS value: '1'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.3.2 (L1) Ensure 'Windows Firewall: Public: Inbound connections' is set to 'Block (default)' (Scored)] ************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.3.3 (L1) Ensure 'Windows Firewall: Public: Outbound connections' is set to 'Allow (default)' (Scored)] ***********************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : set_fact] **********************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The DefaultOutboundAction setting (9.3.3) is Compliant:'0'. It matches the CIS value: '0'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.3.3 (L1) Ensure 'Windows Firewall: Public: Outbound connections' is set to 'Allow (default)' (Scored)] ***********************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.3.4 (L1) Ensure 'Windows Firewall: Public: Settings: Display a notification' is set to 'Yes' (Scored)] ***********************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : set_fact] **********************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The DisableNotifications setting (9.3.4) is Compliant:'1'. It matches the CIS value: '1'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.3.4 (L1) Ensure 'Windows Firewall: Public: Settings: Display a notification' is set to 'Yes' (Scored)] ***********************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.3.5 (L1) Ensure 'Windows Firewall: Public: Settings: Apply local firewall rules' is set to 'No' (Scored)] ********************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : set_fact] **********************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The AllowLocalPolicyMerge setting (9.3.5) is Compliant:'1'. It matches the CIS value: '1'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.3.5 (L1) Ensure 'Windows Firewall: Public: Settings: Apply local firewall rules' is set to 'No' (Scored)] ********************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.3.6 (L1) Ensure 'Windows Firewall: Public: Settings: Apply local connection security rules' is set to 'No' (Scored)] *********************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : set_fact] **********************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The AllowLocalIPsecPolicyMerge setting (9.3.6) is Compliant:'1'. It matches the CIS value: '1'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.3.6 (L1) Ensure 'Windows Firewall: Public: Settings: Apply local connection security rules' is set to 'No' (Scored)] *********************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.3.7 (L1) Ensure 'Windows Firewall: Public: Logging:] *************************************************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : set_fact] **********************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The LogFilePath setting (9.3.7) is Compliant:'C:\\windows\\system32\\logfiles\\firewall\\publicfirewall.log'. It matches the CIS value: 'C:\\windows\\system32\\logfiles\\firewall\\publicfirewall.log'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.3.7 (L1) Ensure 'Windows Firewall: Public: Logging:] *************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.3.8 (L1) Ensure 'Windows Firewall: Public: Logging: Size limit (KB)' is set to '16,384 KB or greater' (Scored)] **************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : set_fact] **********************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The LogFileSize setting (9.3.8) is Compliant:'16384'. It matches the CIS value or is higher: '16384'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.3.8 (L1) Ensure 'Windows Firewall: Public: Logging: Size limit (KB)' is set to '16,384 KB or greater' (Scored)] **************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.3.9 (L1) Ensure 'Windows Firewall: Public: Logging: Log dropped packets' is set to 'Yes' (Scored)] ***************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : set_fact] **********************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The LogDroppedPackets setting (9.3.9) is Compliant:'1'. It matches the CIS value: '1'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.3.9 (L1) Ensure 'Windows Firewall: Public: Logging: Log dropped packets' is set to 'Yes' (Scored)] ***************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.3.10 (L1) Ensure 'Windows Firewall: Public: Logging: Log successful connections' is set to 'Yes' (Scored)] *******************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : set_fact] **********************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_firewall_policy : debug] *************************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The LogSuccessfulConnections setting (9.3.10) is Compliant:'1'. It matches the CIS value: '1'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_firewall_policy : 9.3.10 (L1) Ensure 'Windows Firewall: Public: Logging: Log successful connections' is set to 'Yes' (Scored)] *******************************************
+skipping: [9.37.141.147]
+
+PLAY RECAP *************************************************************************************************************************************************************************************************
+9.37.141.147               : ok=91   changed=30   unreachable=0    failed=0    skipped=60   rescued=0    ignored=0   
+
+[root@oc2685343477 ansible]# 
