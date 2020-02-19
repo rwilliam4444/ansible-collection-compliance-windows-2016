@@ -1,0 +1,17 @@
+---
+- name: ansible-collection-compliance-windows-2016
+  hosts: "{{var_hosts}}"
+
+  roles:
+  - ansible-role-compliance-windows-advance-audit-logging-2016
+  - ansible-role-compliance-windows-control-panel-policy-2016
+  - ansible-role-compliance-windows-firewall-policy-2016
+  - ansible-role-compliance-windows-laps-policy-2016
+  - ansible-role-compliance-windows-mss-policy-2016
+  - ansible-role-compliance-windows-network-policy-2016
+  - ansible-role-compliance-windows-password-policy-2016
+  - ansible-role-compliance-windows-scm-policy-2016
+  - ansible-role-compliance-windows-security-options-policy-2016
+  - ansible-role-compliance-windows-system-policy-2016
+  - ansible-role-compliance-windows-user-rights-policy-2016
+  - ansible-role-compliance-windows-windows-components-policy-2016

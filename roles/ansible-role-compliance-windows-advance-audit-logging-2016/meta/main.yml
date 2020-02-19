@@ -1,0 +1,17 @@
+---
+galaxy_info:
+  author: Richard M. Williams
+  role_name: compliance-windows-advance-audit-logging-2016
+  description: Windows 2016 CIS Advance Audit Logging Check & Remediation.
+  company: IBM Corp
+  license: IBM Intellectual Property.
+  min_ansible_version: 1.8
+  platforms:
+    - name: Windows
+      versions:
+        - 2008 and higher
+  galaxy_tags:
+    - windows
+    - compliance
+    - system
+dependencies: []

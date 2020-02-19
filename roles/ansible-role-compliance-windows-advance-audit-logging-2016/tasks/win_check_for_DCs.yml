@@ -1,0 +1,51 @@
+---
+- name: "Shell Check"
+  win_shell: "{{ win_shell_cmd }}"
+  register: shell_eo
+  ignore_errors: true
+
+- name: "Set output variable"
+  set_fact:
+   shell_e: "{{ shell_eo.stdout | regex_search(regexp,'\\1')|list|join|trim }}"
+  vars:
+   regexp: '\s+{{ regex_key }}\s+(.*)'
+   ignore_errors: true
+
+- block:
+   - include: debug_block_for_DCs.yml
+     vars:
+      msg_string: "{{ title }}"
+      check_value: "{{ shell_e }}"
+
+- name: "Shell Update"
+  win_shell: "{{ win_shell_remediate_cmd }}"
+  ignore_errors: true
+  when: >
+    remediate == "YES" and
+    shell_e != check_against and
+    (DmnRole_o == "4" or DmnRole_o == "5")
+# ***************************************************************************
+
+- name: "Shell Recheck"
+  win_shell: "{{ win_shell_cmd }}"
+  register: sh_ao_rchk
+  ignore_errors: true
+  when: >
+    remediate == "YES" and
+    shell_e != check_against
+
+- name: "Set output variable"
+  set_fact:
+   sh_ao: "{{ sh_ao_rchk.stdout | regex_search(regexp,'\\1')|list|join|trim }}"
+  vars:
+   regexp: '\s+{{ regex_key }}\s+(.*)'
+   ignore_errors: true
+  when: remediate == "YES" and sh_ao_rchk is not skipped
+
+- block:
+   - include: debug_block_for_DCs.yml
+     vars:
+      msg_string: "Recheck: {{ title }}"
+      check_value: "{{ sh_ao }}"
+  when: >
+    sh_ao_rchk.changed and (DmnRole_o == "4" or DmnRole_o == "5")

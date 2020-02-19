@@ -1,0 +1,548 @@
+---
+# ==========================================================================
+# tasks file for ansible-role-compliance-windows-advance-audit-logging-2016
+# ==========================================================================
+#
+#
+# ==================================================================
+# collect hostname and ip address information
+# ==================================================================
+- name: collect hostname
+  win_shell: >
+    $sysinfo=Get-WmiObject -Class win32_computersystem;
+    $server="{0}.{1}" -f $sysinfo.Name, $sysinfo.domain;
+    $server
+  register: FQDN_hostname
+  ignore_errors: true
+
+- name: set output
+  set_fact:
+   FQDN_hostname: "{{ FQDN_hostname.stdout_lines | join }}"
+
+- block:
+   - debug:
+      msg:
+       - "The FQDN hostname is.....{{ FQDN_hostname }}"
+
+- name: collect ip address
+  win_shell: >
+     (Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway -ne
+     $null -and $_.netadapter.status -ne "Disconnected"}).ipv4address.ipaddress
+  register: default_ipv4_address
+  ignore_errors: true
+
+- name: set output
+  set_fact:
+   default_ipv4_address: "{{ default_ipv4_address.stdout_lines }}"
+
+- block:
+   - debug:
+      msg:
+       - "The default_ipv4_address is.....{{ default_ipv4_address }}"
+
+
+# ==================================================================
+# Get O\S information
+# ==================================================================
+- name: "Get Operating Systerm version information"
+  win_shell: (get-WMIobject win32_operatingsystem).Name
+  register: Win_os_ver_out
+  ignore_errors: true
+
+- name: "set output variable"
+  set_fact:
+   Win_os_ver_out="{{ Win_os_ver_out.stdout_lines|list|join }}"
+
+- name: "Check Operating system version and ensure its 2016"
+  fail:
+   msg: "This server is NOT a windows 2016 server: {{ Win_os_ver_out }}"
+  when: approved_windows_ver not in Win_os_ver_out
+
+- block:
+   - debug:
+      msg:
+       - "This server IS a windows 2016 server: {{ Win_os_ver_out }}"
+  when: approved_windows_ver in Win_os_ver_out
+
+
+# ==================================================================
+# Get server role information
+# ==================================================================
+- name: "Get server role information"
+  win_shell: wmic.exe Computersystem get DomainRole
+  register: DmnRole_o
+  ignore_errors: true
+
+- name: "set output variable"
+  set_fact:
+   DmnRole_o: "{{ DmnRole_o.stdout | regex_search(regexp,'\\1')|list|join }}"
+  vars:
+   regexp: 'DomainRole\s+(\d+)'
+
+- block:
+   - debug:
+      msg:
+       - "The DomainRole is NOT a Backup DC or a DC: '{{ DmnRole_o }}'."
+  when: DmnRole_o != "4" and DmnRole_o != "5"
+
+- block:
+   - debug:
+      msg:
+       - "The DomainRole is a Backup DC or a DC:'{{ DmnRole_o }}'."
+  when: DmnRole_o == "4" or DmnRole_o == "5"
+
+
+# ===================================================================
+# 17.1.1 (L1) Get the "credential validation" settings:
+# ===================================================================
+- name: "17.1.1 (L1) execute command for the credential validation log settings"
+  include_tasks: win_check.yml
+  vars:
+   title: "The credential validation log setting (17.1.1 (L1))"
+   check_against: "{{ success_failure_cis }}"
+   regex_key: "Credential Validation"
+   win_shell_cmd: >
+     auditpol.exe /get /subcategory:"credential validation"
+   win_shell_remediate_cmd: >
+     auditpol.exe /set /subcategory:"Credential Validation"
+     /success:enable /failure:enable
+  when: execute_17_1_1 == "YES"
+
+
+# ===================================================================
+# 17.2.1 (L1) Get the "Application Group Management" log settings:
+# ===================================================================
+- name: "17.2.1 (L1) execute cmd for Application Group Management log settings"
+  include_tasks: win_check.yml
+  vars:
+   title: "The App Group Management setting (17.2.1 (L1))"
+   check_against: "{{ success_failure_cis }}"
+   regex_key: "Application Group Management"
+   win_shell_cmd: >
+     auditpol.exe /get /subcategory:"Application Group Management"
+   win_shell_remediate_cmd: >
+     auditpol.exe /set /subcategory:"Application Group Management"
+     /success:enable /failure:enable
+  when: execute_17_2_1 == "YES"
+
+
+# ===================================================================
+# 17.2.2 (L1) Get the "Computer Account Management" log settings:
+# ===================================================================
+- name: "17.2.2 (L1) execute cmd for the Computer Acct Management log settings"
+  include_tasks: win_check.yml
+  vars:
+   title: "The Computer Account Mngnt setting (17.2.2 (L1))"
+   check_against: "{{ success_failure_cis }}"
+   regex_key: "Computer Account Management"
+   win_shell_cmd: >
+     auditpol.exe /get /subcategory:"Computer Account Management"
+   win_shell_remediate_cmd: >
+     auditpol.exe /set /subcategory:"Computer Account Management"
+     /success:enable /failure:enable
+  when: execute_17_2_2 == "YES"
+
+
+# ===================================================================
+# 17.2.3 (L1) FOR DCs ONLY-Get the "Distribution Group Management" log settings:
+# ===================================================================
+- name: "17.2.3 (L1) execute cmd for Distribution Grp Mngmnt log settings - DCs"
+  include_tasks: win_check_for_DCs.yml
+  vars:
+   title: "The Distribution Group Mngmt setting (17.2.3 (L1))"
+   check_against: "{{ success_failure_cis }}"
+   regex_key: "Distribution Group Management"
+   win_shell_cmd: >
+     auditpol.exe /get /subcategory:"Distribution Group Management"
+   win_shell_remediate_cmd: >
+     auditpol.exe /set /subcategory:"Distribution Group Management"
+     /success:enable /failure:enable
+  when: execute_17_2_3 == "YES" and (DmnRole_o == "4" or DmnRole_o == "5")
+
+
+# ===================================================================
+# 17.2.4 (L1) Get the "Other Account Management Events" log settings:
+# ===================================================================
+- name: "17.2.4 (L1) execute cmd for Other Account Mngmt Events log settings"
+  include_tasks: win_check.yml
+  vars:
+   title: "The Other Acct Mngmt Events setting (17.2.4 (L1))"
+   check_against: "{{ success_failure_cis }}"
+   regex_key: "Other Account Management Events"
+   win_shell_cmd: >
+     auditpol.exe /get /subcategory:"Other Account Management Events"
+   win_shell_remediate_cmd: >
+     auditpol.exe /set /subcategory:"Other Account Management Events"
+     /success:enable /failure:enable
+  when: execute_17_2_4 == "YES"
+
+
+# ===================================================================
+# 17.2.5 (L1) Get the "Security Group Management" log settings:
+# ===================================================================
+- name: "17.2.5 (L1) execute cmd for the Security Group Management log settings"
+  include_tasks: win_check.yml
+  vars:
+   title: "The Security Group Management setting (17.2.5 (L1))"
+   check_against: "{{ success_failure_cis }}"
+   regex_key: "Security Group Management"
+   win_shell_cmd: >
+     auditpol.exe /get /subcategory:"Security Group Management"
+   win_shell_remediate_cmd: >
+     auditpol.exe /set /subcategory:"Security Group Management"
+     /success:enable /failure:enable
+  when: execute_17_2_5 == "YES"
+
+
+# ===================================================================
+# 17.2.6 (L1) Get the "User Account Management" log settings:
+# ===================================================================
+- name: "17.2.6 (L1) execute cmd for the User Account Management log settings"
+  include_tasks: win_check.yml
+  vars:
+   title: "The User Account Management setting (17.2.6 (L1))"
+   check_against: "{{ success_failure_cis }}"
+   regex_key: "User Account Management"
+   win_shell_cmd: >
+     auditpol.exe /get /subcategory:"User Account Management"
+   win_shell_remediate_cmd: >
+     auditpol.exe /set /subcategory:"User Account Management"
+     /success:enable /failure:enable
+  when: execute_17_2_6 == "YES"
+
+
+# ===================================================================
+# 17.3.1 (L1) Get the "Plug and Play Events" log settings:
+# ===================================================================
+- name: "17.3.1 (L1) execute command for the Plug and Play Events log settings"
+  include_tasks: win_check_search.yml
+  vars:
+   title: "The PnP Events log setting (17.3.1 (L1))"
+   check_against: "{{ success_cis }}"
+   regex_key: "Plug and Play Events"
+   win_shell_cmd: >
+     auditpol.exe /get /subcategory:"Plug and Play Events"
+   win_shell_remediate_cmd: >
+     auditpol.exe /set /subcategory:"Plug and Play Events"
+     /success:enable
+  when: execute_17_3_1 == "YES"
+
+
+# ===================================================================
+# 17.3.2 (L1) Get the "Process Creation" log settings:
+# ===================================================================
+- name: "17.3.2 (L1) execute command for the Process Creation log settings"
+  include_tasks: win_check_search.yml
+  vars:
+   title: "The Process Creation log setting (17.3.2 (L1))"
+   check_against: "{{ success_cis }}"
+   regex_key: "Process Creation"
+   win_shell_cmd: >
+     auditpol.exe /get /subcategory:"Process Creation"
+   win_shell_remediate_cmd: >
+     auditpol.exe /set /subcategory:"Process Creation"
+     /success:enable
+  when: execute_17_3_2 == "YES"
+
+
+# ===================================================================
+# 17.4.1 (L1) - FOR DCs ONLY - Get the "Directory Service Access" log settings:
+# ===================================================================
+- name: "17.4.1 (L1) execute cmd for the Dir Service Access log settings - DCs"
+  include_tasks: win_check_for_DCs.yml
+  vars:
+   title: "The Dir Service Access log setting (17.4.1 (L1))"
+   check_against: "{{ success_failure_cis }}"
+   regex_key: "Directory Service Access"
+   win_shell_cmd: >
+     auditpol.exe /get /subcategory:"Directory Service Access"
+   win_shell_remediate_cmd: >
+     auditpol.exe /set /subcategory:"Directory Service Access"
+     /success:enable /failure:enable
+  when: execute_17_4_1 == "YES" and (DmnRole_o == "4" or DmnRole_o == "5")
+
+
+# ===================================================================
+# 17.4.2 (L1) - FOR DCs only - Get the "Directory Service Changes" log settings:
+# ===================================================================
+- name: "17.4.2 (L1) execute cmd for the Dir Service Changes log settings - DCs"
+  include_tasks: win_check_for_DCs.yml
+  vars:
+   title: "The Dir Service Changes log setting (17.4.2 (L1))"
+   check_against: "{{ success_failure_cis }}"
+   regex_key: "Directory Service Changes"
+   win_shell_cmd: >
+     auditpol.exe /get /subcategory:"Directory Service Changes"
+   win_shell_remediate_cmd: >
+     auditpol.exe /set /subcategory:"Directory Service Changes"
+     /success:enable /failure:enable
+  when: execute_17_4_2 == "YES" and (DmnRole_o == "4" or DmnRole_o == "5")
+
+
+# ===================================================================
+# 17.5.1 (L1) Get the "Account Lockout" log settings:
+# ===================================================================
+- name: "17.5.1 (L1) execute command for the Account Lockout log settings"
+  include_tasks: win_check.yml
+  vars:
+   title: "The Account Lockout log setting (17.5.1 (L1))"
+   check_against: "{{ success_failure_cis }}"
+   regex_key: "Account Lockout"
+   win_shell_cmd: >
+     auditpol.exe /get /subcategory:"Account Lockout"
+   win_shell_remediate_cmd: >
+     auditpol.exe /set /subcategory:"Account Lockout"
+     /success:enable /failure:enable
+  when: execute_17_5_1 == "YES"
+
+
+# ===================================================================
+# 17.5.2 (L1) Get the "Group Membership" log settings:
+# ===================================================================
+- name: "17.5.2 (L1) execute command for the Group Membership log settings"
+  include_tasks: win_check_search.yml
+  vars:
+   title: "The Group Membership log setting (17.5.2 (L1))"
+   check_against: "{{ success_cis }}"
+   regex_key: "Group Membership"
+   win_shell_cmd: >
+     auditpol.exe /get /subcategory:"Group Membership"
+   win_shell_remediate_cmd: >
+     auditpol.exe /set /subcategory:"Group Membership"
+     /success:enable
+  when: execute_17_5_2 == "YES"
+
+
+# ===================================================================
+# 17.5.3 (L1) Get the "Logoff" log settings:
+# ===================================================================
+- name: "17.5.3 (L1) execute the Remediation cmd for the Logoff log settings"
+  include_tasks: win_check_search.yml
+  vars:
+   title: "The Logoff log setting (17.5.3 (L1))"
+   check_against: "{{ success_cis }}"
+   regex_key: "Logoff"
+   win_shell_cmd: >
+     auditpol.exe /get /subcategory:"Logoff"
+   win_shell_remediate_cmd: >
+     auditpol.exe /set /subcategory:"Logoff" /success:enable
+  when: execute_17_5_3 == "YES"
+
+
+# ==================================================================
+# 17.5.4 (L1) Get the "Logon" log settings:
+# ===================================================================
+- name: "17.5.4 (L1) execute command for the Logon log settings"
+  include_tasks: win_check.yml
+  vars:
+   title: "The Logon log setting (17.5.4 (L1))"
+   check_against: "{{ success_failure_cis }}"
+   regex_key: "Logon"
+   win_shell_cmd: >
+     auditpol.exe /get /subcategory:"Logon"
+   win_shell_remediate_cmd: >
+     auditpol.exe /set /subcategory:"Logon" /success:enable /failure:enable
+  when: execute_17_5_4 == "YES"
+
+
+# ===================================================================
+# 17.5.5 (L1) Get the "Other Logon/Logoff Events" log settings:
+# ===================================================================
+- name: "17.5.5 (L1) execute cmd for Other Logon/Logoff Events log settings"
+  include_tasks: win_check.yml
+  vars:
+   title: "The Other Logon Logoff Events setting (17.5.5 (L1))"
+   check_against: "{{ success_failure_cis }}"
+   regex_key: "Other Logon/Logoff Events"
+   win_shell_cmd: >
+     auditpol.exe /get /subcategory:"Other Logon/Logoff Events"
+   win_shell_remediate_cmd: >
+     auditpol.exe /set /subcategory:"Other Logon/Logoff Events"
+     /success:enable /failure:enable
+  when: execute_17_5_5 == "YES"
+
+
+# ===================================================================
+# 17.5.6 (L1) Get the "Special Logon" log settings:
+# ===================================================================
+- name: "17.5.6 (L1) execute command for the Special Logon log settings"
+  include_tasks: win_check_search.yml
+  vars:
+   title: "The Special Logon log setting (17.5.6 (L1))"
+   check_against: "{{ success_cis }}"
+   regex_key: "Special Logon"
+   win_shell_cmd: >
+     auditpol.exe /get /subcategory:"Special Logon"
+   win_shell_remediate_cmd: >
+     auditpol.exe /set /subcategory:"Special Logon" /success:enable
+  when: execute_17_5_6 == "YES"
+
+
+# ===================================================================
+# 17.6.1 (L1) Get the "Removable Storage" log settings:
+# ===================================================================
+- name: "17.6.1 (L1) execute command for the Removable Storage log settings"
+  include_tasks: win_check.yml
+  vars:
+   title: "The Removable Storage Log setting (17.6.1 (L1))"
+   check_against: "{{ success_failure_cis }}"
+   regex_key: "Removable Storage"
+   win_shell_cmd: >
+     auditpol.exe /get /subcategory:"Removable Storage"
+   win_shell_remediate_cmd: >
+     auditpol.exe /set /subcategory:"Removable Storage"
+     /success:enable /failure:enable
+  when: execute_17_6_1 == "YES"
+
+
+# ===================================================================
+# 17.7.1 (L1) Get the "Audit Policy Change" log settings:
+# ===================================================================
+- name: "17.7.1 (L1) execute command for the Audit Policy Change log settings"
+  include_tasks: win_check.yml
+  vars:
+   title: "The Audit Policy Change Log setting (17.7.1 (L1))"
+   check_against: "{{ success_failure_cis }}"
+   regex_key: "Audit Policy Change"
+   win_shell_cmd: >
+     auditpol.exe /get /subcategory:"Audit Policy Change"
+   win_shell_remediate_cmd: >
+     auditpol.exe /set /subcategory:"Audit Policy Change"
+     /success:enable /failure:enable
+  when: execute_17_7_1 == "YES"
+
+
+# =====================================================================
+# 17.7.2 (L1) Get the "Authentication Policy Change" log settings:
+# =====================================================================
+- name: "17.7.2 (L1) execute cmd for Authentication Policy Change log settings"
+  include_tasks: win_check_search.yml
+  vars:
+   title: "The Auth Policy Change log setting (17.7.2 (L1))"
+   check_against: "{{ success_cis }}"
+   regex_key: "Authentication Policy Change"
+   win_shell_cmd: >
+     auditpol.exe /get /subcategory:"Authentication Policy Change"
+   win_shell_remediate_cmd: >
+     auditpol.exe /set /subcategory:"Authentication Policy Change"
+     /success:enable
+  when: execute_17_7_2 == "YES"
+
+
+# ===================================================================
+# 17.7.3 (L1)  Get the "Authorization Policy Change" log settings:
+# ===================================================================
+- name: "17.7.3 (L1) execute cmd for Authorization Policy Change log settings"
+  include_tasks: win_check_search.yml
+  vars:
+   title: "The Auth Policy Change log setting (17.7.3 (L1))"
+   check_against: "{{ success_cis }}"
+   regex_key: "Authorization Policy Change"
+   win_shell_cmd: >
+     auditpol.exe /get /subcategory:"Authorization Policy Change"
+   win_shell_remediate_cmd: >
+     auditpol.exe /set /subcategory:"Authorization Policy Change"
+     /success:enable
+  when: execute_17_7_3 == "YES"
+
+
+# ===================================================================
+# 17.8.1 (L1) Get the "Sensitive Privilege Use" log settings:
+# ===================================================================
+- name: "17.8.1 (L1) execute cmd for the Sensitive Privilege Use log settings"
+  include_tasks: win_check.yml
+  vars:
+   title: "The Sensitive Privilege Log setting (17.8.1 (L1))"
+   check_against: "{{ success_failure_cis }}"
+   regex_key: "Sensitive Privilege Use"
+   win_shell_cmd: >
+     auditpol.exe /get /subcategory:"Sensitive Privilege Use"
+   win_shell_remediate_cmd: >
+     auditpol.exe /set /subcategory:"Sensitive Privilege Use"
+     /success:enable /failure:enable
+  when: execute_17_8_1 == "YES"
+
+
+# ===================================================================
+# 17.9.1 (L1) Get the "IPsec Driver" log settings:
+# ===================================================================
+- name: "17.9.1 (L1) execute command for the IPsec Driver log settings"
+  include_tasks: win_check.yml
+  vars:
+   title: "The IPsec Driver Log setting (17.9.1 (L1))"
+   check_against: "{{ success_failure_cis }}"
+   regex_key: "IPsec Driver"
+   win_shell_cmd: >
+     auditpol.exe /get /subcategory:"IPsec Driver"
+   win_shell_remediate_cmd: >
+     auditpol.exe /set /subcategory:"IPsec Driver"
+     /success:enable /failure:enable
+  when: execute_17_9_1 == "YES"
+
+
+# ===================================================================
+# 17.9.2 (L1) Get the "Other System Events" log settings:
+# ===================================================================
+- name: "17.9.2 (L2) execute command for the Other System Events log settings"
+  include_tasks: win_check.yml
+  vars:
+   title: "The Other System Events Log setting (17.9.2 (L1))"
+   check_against: "{{ success_failure_cis }}"
+   regex_key: "Other System Events"
+   win_shell_cmd: >
+     auditpol.exe /get /subcategory:"Other System Events"
+   win_shell_remediate_cmd: >
+     auditpol.exe /set /subcategory:"Other System Events"
+     /success:enable /failure:enable
+  when: execute_17_9_2 == "YES"
+
+
+# ===================================================================
+# 17.9.3 (L1) Get the "Security State Change" log settings:
+# ===================================================================
+- name: "17.9.3 (L1) execute command for the Security State Change log settings"
+  include_tasks: win_check_search.yml
+  vars:
+   title: "The Security State Change log setting (17.9.3 (L1))"
+   check_against: "{{ success_cis }}"
+   regex_key: "Security State Change"
+   win_shell_cmd: >
+     auditpol.exe /get /subcategory:"Security State Change"
+   win_shell_remediate_cmd: >
+     auditpol.exe /set /subcategory:"Security State Change"
+     /success:enable
+  when: execute_17_9_3 == "YES"
+
+
+# ===================================================================
+# 17.9.4 (L1) Get the "Security System Extension" log settings:
+# ===================================================================
+- name: "17.9.4 (L1) command for the Security System Extension log settings"
+  include_tasks: win_check.yml
+  vars:
+   title: "The Security System Ext Log setting (17.9.4 (L1))"
+   check_against: "{{ success_failure_cis }}"
+   regex_key: "Security System Extension"
+   win_shell_cmd: >
+     auditpol.exe /get /subcategory:"Security System Extension"
+   win_shell_remediate_cmd: >
+     auditpol.exe /set /subcategory:"Security System Extension"
+     /success:enable /failure:enable
+  when: execute_17_9_4 == "YES"
+
+
+# ===================================================================
+# 17.9.5 (L1) Get the "System Integrity" log settings:
+# ===================================================================
+- name: "17.9.5 (L1) execute command for the System Integrity log settings"
+  include_tasks: win_check.yml
+  vars:
+   title: "The System Integrity Log setting (17.9.5 (L1))"
+   check_against: "{{ success_failure_cis }}"
+   regex_key: "System Integrity"
+   win_shell_cmd: >
+     auditpol.exe /get /subcategory:"System Integrity"
+   win_shell_remediate_cmd: >
+     auditpol.exe /set /subcategory:"System Integrity"
+     /success:enable /failure:enable
+  when: execute_17_9_5 == "YES"

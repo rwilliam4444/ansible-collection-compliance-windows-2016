@@ -1,0 +1,5 @@
+---
+- name: ansible-role-compliance-windows-laps-policy-2016
+  hosts: "{{var_hosts}}"
+  roles:
+  - ansible-role-compliance-windows-laps-policy-2016

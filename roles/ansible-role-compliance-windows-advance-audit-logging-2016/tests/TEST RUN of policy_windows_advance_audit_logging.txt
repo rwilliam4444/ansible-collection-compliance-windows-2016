@@ -1,0 +1,659 @@
+﻿[root@oc2685343477 ansible]# ansible-playbook policy_windows_advance_audit_logging.yml
+
+PLAY [win] *************************************************************************************************************************************************************************************************
+
+TASK [Gathering Facts] *************************************************************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : 17.1.1 (L1) execute command for the credential validation log settings] **************************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : set_fact] ****************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": "No Auditing"
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The credential validation log setting (17.1.1 (L1)) is Non-Compliant: 'No Auditing'.  The value should be 'Success and Failure'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : 17.1.1 (L1) execute the Remediation command for the Credential Validation log settings] **********************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : 17.5.4 (L1) execute command for the Logon log settings] ******************************************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : set_fact] ****************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": "Value for Logon logging..... No Auditing"
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The Logon log setting (17.5.4 (L1)) is Non-Compliant: 'No Auditing'.  The value should be 'Success and Failure'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : 17.5.4 (L1) execute the Remediation command for the Logon log settings] **************************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : execute command for the "Logoff" log settings] ***************************************************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : set_fact] ****************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": "Value for Logoff logging..... No Auditing"
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The Logoff log setting (17.5.3 (L1)) is Non-Compliant: 'No Auditing'.  The value should be 'Success'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : 17.5.3 (L1) execute the Remediation command for the Logoff log settings] *************************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : 17.5.1 (L1) execute command for the Account Lockout log settings] ********************************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : set_fact] ****************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": "Value for Account Lockout logging..... No Auditing"
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The Account Lockout log setting (17.5.1 (L1)) is Non-Compliant: 'No Auditing'.  The value should be 'Success and Failure'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : 17.5.1 (L1) execute the Remediation command for the Account Lockout log settings] ****************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : 17.5.6 (L1) execute command for the Special Logon log settings] **********************************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : set_fact] ****************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": "Value for Special Logon logging..... No Auditing"
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The Special Logon log setting (17.5.6 (L1)) is Non-Compliant: 'No Auditing'.  The value should be 'Success'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : 17.5.6 (L1) execute the Remediation command for the Special Logon log settings] ******************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : 17.5.5 (L1) execute command for the Other Logon/Logoff Events log settings] **********************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : set_fact] ****************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": "Value for Other Logon/Logoff Events logging..... No Auditing"
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The Other Logon Logoff Events setting (17.5.5 (L1)) is Non-Compliant: 'No Auditing'.  The value should be 'Success and Failure'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : (17.5.5 (L1))execute the Remediation command for the Other Logon Logoff Events log settings] *****************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : 17.2.6 (L1) execute command for the User Account Management log settings] ************************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : set_fact] ****************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": "Value for User Account Management logging..... No Auditing"
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The User Account Management setting (17.2.6 (L1)) is Non-Compliant: 'No Auditing'.  The value should be 'Success and Failure'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : (17.2.6 (L1))execute the Remediation command for the User Account Management log settings] *******************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : 17.2.2 (L1) execute command for the Computer Account Management log settings] ********************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : set_fact] ****************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": "Value for Computer Account Management logging..... No Auditing"
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The Computer Account Management setting (17.2.2 (L1)) is Non-Compliant: 'No Auditing'.  The value should be 'Success and Failure'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : (17.2.2 (L1))execute the Remediation command for the Computer Account Management log settings] ***************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : 17.2.5 (L1) execute command for the Security Group Management log settings] **********************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : set_fact] ****************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": "Value for Security Group Management logging..... No Auditing"
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The Security Group Management setting (17.2.5 (L1)) is Non-Compliant: 'No Auditing'.  The value should be 'Success and Failure'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : (17.2.5 (L1))execute the Remediation command for the Security Group Management log settings] *****************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : 17.2.3 (L1) execute command for the Distribution Group Management log settings] ******************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : set_fact] ****************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": "Value for Distribution Group Management logging..... No Auditing"
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The Distribution Group Management setting (17.2.3 (L1)) is Non-Compliant: 'No Auditing'.  The value should be 'Success and Failure'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : (17.2.3 (L1))execute the Remediation command for the Distribution Group Management log settings] *************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : 17.2.1 (L1) execute command for the Application Group Management log settings] *******************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : set_fact] ****************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": "Value for Application Group Management logging..... No Auditing"
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The Application Group Management setting (17.2.1 (L1)) is Non-Compliant: 'No Auditing'.  The value should be 'Success and Failure'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : (17.2.1 (L1))execute the Remediation command for the Application Group Management log settings] **************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : 17.2.4 (L1) execute command for the Other Account Management Events log settings] ****************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : set_fact] ****************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": "Value for Other Account Management Events logging..... No Auditing"
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The Other Account Management Events setting (17.2.4 (L1)) is Non-Compliant: 'No Auditing'.  The value should be 'Success and Failure'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : (17.2.4 (L1))execute the Remediation command for the Other Account Management Events log settings] ***********************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : 17.4.1 (L1) execute command for the Directory Service Access log settings] ***********************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : set_fact] ****************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": "Value for Directory Service Access logging..... No Auditing"
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The Directory Service Access log setting (17.4.1 (L1)) is Non-Compliant: 'No Auditing'.  The value should be 'Success and Failure'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : (17.4.1 (L1))execute the Remediation command for the Directory Service Access log settings] ******************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : 17.4.2 (L1) execute command for the Directory Service Changes log settings] **********************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : set_fact] ****************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": "Value for Directory Service Changes logging..... No Auditing"
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The Directory Service Changes log setting (17.4.2 (L1)) is Non-Compliant: 'No Auditing'.  The value should be 'Success and Failure'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : (17.4.2 (L1))execute the Remediation command for the Directory Service Changes log settings] *****************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : 17.7.1 (L1) execute command for the Audit Policy Change log settings] ****************************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : set_fact] ****************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": "Value for Audit Policy Change logging..... No Auditing"
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The Audit Policy Change Log setting (17.7.1 (L1)) is Non-Compliant: 'No Auditing'.  The value should be 'Success and Failure'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : (17.7.1 (L1))execute the Remediation command for the Audit Policy Change log settings] ***********************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : 17.7.2 (L1) execute command for the Authentication Policy Change log settings] *******************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : set_fact] ****************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": "Value for Authentication Policy Change logging..... No Auditing"
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The Authentication Policy Change log setting (17.7.2 (L1)) is Non-Compliant: 'No Auditing'.  The value should be 'Success'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : 17.7.2 (L1) execute the Remediation command for the Authentication Policy Change log settings] ***************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : 17.7.3 (L1) execute command for the Authorization Policy Change log settings] ********************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : set_fact] ****************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": "Value for Authorization Policy Change logging..... No Auditing"
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The Authorization Policy Change log setting (17.7.3 (L1)) is Non-Compliant: 'No Auditing'.  The value should be 'Success'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : 17.7.3 (L1) execute the Remediation command for the Authorization Policy Change log settings] ****************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : 17.8.1 (L1) execute command for the Sensitive Privilege Use log settings] ************************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : set_fact] ****************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": "Value for Sensitive Privilege Use logging..... No Auditing"
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The Sensitive Privilege Log setting (17.8.1 (L1)) is Non-Compliant: 'No Auditing'.  The value should be 'Success and Failure'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : (17.8.1 (L1))execute the Remediation command for the Sensitive Privilege log settings] ***********************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : 17.3.2 (L1) execute command for the Process Creation log settings] *******************************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : set_fact] ****************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": "Value for Process Creation logging..... No Auditing"
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The Process Creation log setting (17.3.2 (L1)) is Non-Compliant: 'No Auditing'.  The value should be 'Success'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : 17.3.2 (L1) execute the Remediation command for the Process Creation log settings] ***************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : 17.9.3 (L1) execute command for the Security State Change log settings] **************************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : set_fact] ****************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": "Value for Security State Change logging..... No Auditing"
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The Security State Change log setting (17.9.3 (L1)) is Non-Compliant: 'No Auditing'.  The value should be 'Success'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : 17.9.3 (L1) execute the Remediation command for the Security State Change log settings] **********************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : 17.9.4 (L1) execute command for the Security System Extension log settings] **********************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : set_fact] ****************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": "Value for Security System Extension logging..... No Auditing"
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The Security System Extension Log setting (17.9.4 (L1)) is Non-Compliant: 'No Auditing'.  The value should be 'Success and Failure'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : (17.9.4 (L1))execute the Remediation command for the Security System Extension log settings] *****************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : 17.9.5 (L1) execute command for the System Integrity log settings] *******************************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : set_fact] ****************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": "Value for System Integrity logging..... No Auditing"
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The System Integrity  Log setting (17.9.5 (L1)) is Non-Compliant: 'No Auditing'.  The value should be 'Success and Failure'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : (17.9.5 (L1))execute the Remediation command for the System Integrity log settings] **************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : 17.9.1 (L1) execute command for the IPsec Driver log settings] ***********************************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : set_fact] ****************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": "Value for IPsec Driver logging..... No Auditing"
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The IPsec Driver Log setting (17.9.1 (L1)) is Non-Compliant: 'No Auditing'.  The value should be 'Success and Failure'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : (17.9.1 (L1))execute the Remediation command for the IPsec Driver log settings] ******************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : 17.9.2 (L2) execute command for the Other System Events log settings] ****************************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : set_fact] ****************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": "Value for Other System Events logging..... No Auditing"
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The Other System Events Log setting (17.9.2 (L1)) is Non-Compliant: 'No Auditing'.  The value should be 'Success and Failure'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : (17.9.2 (L1))execute the Remediation command for the Other System Events log settings] ***********************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : 17.3.1 (L1) execute command for the Plug and Play Events log settings] ***************************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : set_fact] ****************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": "Value for PnP Events logging..... No Auditing"
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The PnP Events log setting (17.3.1 (L1)) is Non-Compliant: 'No Auditing'.  The value should be 'Success'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : 17.3.1 (L1) execute the Remediation command for the PnP Events log settings] *********************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : 17.5.2 (L1) execute command for the Group Membership log settings] *******************************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : set_fact] ****************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": "Value for Group Membership logging..... No Auditing"
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The Group Membership log setting (17.5.2 (L1)) is Non-Compliant: 'No Auditing'.  The value should be 'Success'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : 17.5.2 (L1) execute the Remediation command for the Group Membership log settings] ***************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : 17.6.1 (L1) execute command for the Removable Storage log settings] ******************************************************************************
+changed: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : set_fact] ****************************************************************************************************************************************
+ok: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": "Value for Removable Storage logging..... No Auditing"
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+ok: [9.37.141.147] => {
+    "msg": [
+        "The Removable Storage Log setting (17.6.1 (L1)) is Non-Compliant: 'No Auditing'.  The value should be 'Success and Failure'"
+    ]
+}
+
+TASK [ansible_role_policy_windows_advance_audit_logging : debug] *******************************************************************************************************************************************
+skipping: [9.37.141.147]
+
+TASK [ansible_role_policy_windows_advance_audit_logging : (17.6.1 (L1))execute the Remediation command for the Removable Storage log settings] *************************************************************
+changed: [9.37.141.147]
+
+PLAY RECAP *************************************************************************************************************************************************************************************************
+9.37.141.147               : ok=136  changed=54   unreachable=0    failed=0    skipped=27   rescued=0    ignored=0   
+
+[root@oc2685343477 ansible]# 
