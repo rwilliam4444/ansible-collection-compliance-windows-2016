@@ -3,8 +3,8 @@ galaxy_info:
   author: Richard M. Williams
   role_name: compliance-windows-security-options-policy-2016
   description: Win 2016 Check & Remediation for the CIS Security Options section
-  company: IBM Corp
-  license: IBM Intellectual Property
+  company: 
+  license: 
   min_ansible_version: 1.8
   platforms:
     - name: Windows
