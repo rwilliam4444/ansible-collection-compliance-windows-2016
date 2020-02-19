@@ -1,0 +1,1030 @@
+---
+# =====================================================================
+# tasks file for ansible-role-compliance-windows-system-policy-2016
+# =====================================================================
+#
+#
+# ==================================================================
+# collect hostname and ip address information
+# ==================================================================
+- name: collect hostname
+  win_shell: >
+    $sysinfo=Get-WmiObject -Class win32_computersystem;
+    $server="{0}.{1}" -f $sysinfo.Name, $sysinfo.domain;
+    $server
+  register: FQDN_hostname
+  ignore_errors: true
+
+- name: set output
+  set_fact:
+   FQDN_hostname: "{{ FQDN_hostname.stdout_lines | join }}"
+
+- block:
+   - debug:
+      msg:
+       - "The FQDN hostname is.....{{ FQDN_hostname }}"
+
+- name: collect ip address
+  win_shell: >
+     (Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway -ne
+     $null -and $_.netadapter.status -ne "Disconnected"}).ipv4address.ipaddress
+  register: default_ipv4_address
+  ignore_errors: true
+
+- name: set output
+  set_fact:
+   default_ipv4_address: "{{ default_ipv4_address.stdout_lines }}"
+
+- block:
+   - debug:
+      msg:
+       - "The default_ipv4_address is.....{{ default_ipv4_address }}"
+
+
+# ==================================================================
+# Get O\S information
+# ==================================================================
+- name: "Get Operating Systerm version information"
+  win_shell: (get-WMIobject win32_operatingsystem).Name
+  register: Win_os_ver_out
+  ignore_errors: true
+
+- name: "set output variable"
+  set_fact:
+   Win_os_ver_out="{{ Win_os_ver_out.stdout_lines|list|join }}"
+
+- name: "check and ensure if the windows server is a 2016 server"
+  fail:
+   msg: "This server is NOT a windows 2016 server: {{ Win_os_ver_out }}"
+  when: approved_windows_ver not in Win_os_ver_out
+
+- block:
+   - debug:
+      msg:
+       - "This server IS a windows 2016 server: {{ Win_os_ver_out }}"
+  when: approved_windows_ver in Win_os_ver_out
+#
+#
+# ==================================================================
+# Get server role information
+# ==================================================================
+- name: "Get server role information"
+  win_shell: wmic.exe Computersystem get DomainRole
+  register: DomainR_out
+  ignore_errors: true
+
+- name: "set output variable"
+  set_fact:
+   DomainR_out: "{{ DomainR_out.stdout|regex_search(regexp,'\\1')|list|join }}"
+  vars:
+   regexp: 'DomainRole\s+(\d+)'
+
+- block:
+   - debug:
+      msg:
+       - "The DomainRole is NOT a Backup DC or a DC: '{{ DomainR_out }}'."
+  when: DomainR_out != "4" and DomainR_out != "5"
+
+- block:
+   - debug:
+      msg:
+       - "The DomainRole is a Backup DC or a DC:'{{ DomainR_out }}'."
+  when: DomainR_out == "4" or DomainR_out == "5"
+
+- name: "check and ensure the server is a Memeber Server only"
+  fail:
+   msg: "This server is a domain controller.  This is for MS servers only."
+  when: DomainR_out == "4" or DomainR_out == "5"
+
+
+# ============================================================================
+# 18.8.3.1 (L1) Ensure 'Include command line in process creation events' is ...
+# ============================================================================
+- name: "18.8.3.1 (L1) Ensure 'Include command line in process creation events'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The ProcessCreationIncludeCmdLine_Enabled setting (18.8.3.1)"
+   check_against: "{{ ProcessCreationIncludeCmdLine_Enabled_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\Audit"
+     -name "ProcessCreationIncludeCmdLine_Enabled"|Select-Object
+     -ExpandProperty "ProcessCreationIncludeCmdLine_Enabled"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\Audit
+    name: "ProcessCreationIncludeCmdLine_Enabled"
+    data: "1"
+    type: dword
+  when: execute_18_8_3_1 == "YES"
+
+
+# ============================================================================
+# 18.8.12.1 (L1) Ensure 'Boot-Start Driver Initialization Policy' is set to..."
+# ============================================================================
+- name: "18.8.12.1 (L1) Ensure 'Boot-Start Driver Initialization Policy' is..."
+  include_tasks: win_check_not_in.yml
+  vars:
+   title: "The DriverLoadPolicy setting (18.8.12.1)"
+   check_against: "{{ DriverLoadPolicy_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SYSTEM\CurrentControlSet\Policies\EarlyLaunch"
+     -name "DriverLoadPolicy"|Select-Object
+     -ExpandProperty "DriverLoadPolicy"
+   win_regedit_cmd:
+    path: HKLM:\SYSTEM\CurrentControlSet\Policies\EarlyLaunch
+    name: "DriverLoadPolicy"
+    data: "1"
+    type: dword
+  when: execute_18_8_12_1 == "YES"
+
+
+# =============================================================================
+# 18.8.19.2 (L1) Ensure 'Configure registry policy processing: Do not apply...'
+# =============================================================================
+- name: "18.8.19.2 (L1) Ensure 'Configure registry policy processing: Do not..'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The NoBackgroundPolicy setting (18.8.19.2)"
+   check_against: "{{ NoBackgroundPolicy_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Policies\Microsoft\Windows\GroupPolicy\{35378EAC-683F-11D2-A89A-00C04FBBCFA2}"
+     -name "NoBackgroundPolicy"|Select-Object
+     -ExpandProperty "NoBackgroundPolicy"
+   win_regedit_cmd:
+    path: "{{ GroupPolicy_reg }}{35378EAC-683F-11D2-A89A-00C04FBBCFA2}"
+    name: "NoBackgroundPolicy"
+    data: "0"
+    type: dword
+  when: execute_18_8_19_2 == "YES"
+
+
+# ============================================================================
+# 18.8.19.3 (L1) Ensure 'Configure registry policy processing: Process even...'
+# ============================================================================
+- name: "18.8.19.3 (L1) Ensure 'Configure registry policy processing:...'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The NoGPOListChanges setting (18.8.19.3)"
+   check_against: "{{ NoGPOListChanges_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Policies\Microsoft\Windows\GroupPolicy\{35378EAC-683F-11D2-A89A-00C04FBBCFA2}"
+     -name "NoGPOListChanges"|Select-Object -ExpandProperty "NoGPOListChanges"
+   win_regedit_cmd:
+    path: "{{ GroupPolicy_reg }}{35378EAC-683F-11D2-A89A-00C04FBBCFA2}"
+    name: "NoGPOListChanges"
+    data: "0"
+    type: dword
+  when: execute_18_8_19_3 == "YES"
+
+
+# =============================================================================
+# 18.8.19.4 (L1) 'Continue experiences on this device' is set to 'Disabled'
+# =============================================================================
+- name: "18.8.19.4 (L1) 'Continue experiences on this device' set to 'Disabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The EnableCdp setting (18.8.19.4)"
+   check_against: "{{ EnableCdp_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System"
+     -name "EnableCdp"|Select-Object -ExpandProperty "EnableCdp"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\System
+    name: "EnableCdp"
+    data: "0"
+    type: dword
+  when: execute_18_8_19_4 == "YES"
+
+
+# =============================================================================
+# 18.8.19.5 (L1) Ensure 'Turn off background refresh of Group Policy' is
+# set to 'Disabled' (Scored)
+# =============================================================================
+- name: "18.8.19.5 (L1) 'Turn off bckgnd refresh of Grp Plcy' set to 'Disabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The DisableBkGndGroupPolicy setting (18.8.19.5)"
+   check_against: "{{ DisableBkGndGroupPolicy_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
+     -name "DisableBkGndGroupPolicy"|Select-Object
+     -ExpandProperty "DisableBkGndGroupPolicy"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System
+    name: "DisableBkGndGroupPolicy"
+    data: "0"
+    type: dword
+  when: execute_18_8_19_5 == "YES"
+
+
+# =============================================================================
+# 18.8.20.1.1 (L2) Ensure 'Turn off access to the Store' is set to 'Enabled'"
+# =============================================================================
+- name: "18.8.20.1.1 (L2) 'Turn off access to the Store' is set to 'Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The NoUseStoreOpenWith setting (18.8.20.1.1)"
+   check_against: "{{ NoUseStoreOpenWith_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer"
+     -name "NoUseStoreOpenWith"|Select-Object
+     -ExpandProperty "NoUseStoreOpenWith"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer
+    name: "NoUseStoreOpenWith"
+    data: "1"
+    type: dword
+  when: execute_18_8_20_1_1 == "YES"
+
+
+# =============================================================================
+# 18.8.20.1.2 (L2) Ensure 'Turn off downloading of print drivers over HTTP'
+# is set to 'Enabled' (Scored)
+# =============================================================================
+- name: "18.8.20.1.2 (L2) 'Turn off dwnldng of prnt drvrs over HTTP'-'Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The DisableWebPnPDownload setting (18.8.20.1.2)"
+   check_against: "{{ DisableWebPnPDownload_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\Software\Policies\Microsoft\Windows NT\Printers"
+     -name "DisableWebPnPDownload"|Select-Object
+     -ExpandProperty "DisableWebPnPDownload"
+   win_regedit_cmd:
+    path: HKLM:\Software\Policies\Microsoft\Windows NT\Printers
+    name: "DisableWebPnPDownload"
+    data: "1"
+    type: dword
+  when: execute_18_8_20_1_2 == "YES"
+
+
+# ============================================================================
+# 18.8.20.1.3 (L2) Ensure 'Turn off handwriting personalization data sharing'
+# is set to 'Enabled'
+# ============================================================================
+- name: "18.8.20.1.3 (L2)'Turn off hndwrtng prsnlztn data sharing'-'Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The PreventHandwritingDataSharing setting (18.8.20.1.3)"
+   check_against: "{{ PreventHandwritingDataSharing_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Policies\Microsoft\Windows\TabletPC"
+     -name "PreventHandwritingDataSharing"|Select-Object
+     -ExpandProperty "PreventHandwritingDataSharing"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\TabletPC
+    name: "PreventHandwritingDataSharing"
+    data: "1"
+    type: dword
+  when: execute_18_8_20_1_3 == "YES"
+
+
+# =============================================================================
+# 18.8.20.1.4 (L2) Ensure 'Turn off handwriting recognition error reporting'
+# is set to 'Enabled' (Scored)
+# =============================================================================
+- name: "18.8.20.1.4 (L2)'Turn off hndwrtng rcgntn error reporting'-'Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The PreventHandwritingErrorReports setting (18.8.20.1.4)"
+   check_against: "{{ PreventHandwritingErrorReports_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\Software\Policies\Microsoft\Windows\HandwritingErrorReports"
+     -name "PreventHandwritingErrorReports"|Select-Object
+     -ExpandProperty "PreventHandwritingErrorReports"
+   win_regedit_cmd:
+    path: HKLM:\Software\Policies\Microsoft\Windows\HandwritingErrorReports
+    name: "PreventHandwritingErrorReports"
+    data: "1"
+    type: dword
+  when: execute_18_8_20_1_4 == "YES"
+
+
+# =============================================================================
+# 18.8.20.1.5 (L2) Ensure 'Turn off Internet Connection Wizard if URL
+# connection is referring to Microsoft.com' is set to 'Enabled' (Scored)
+# =============================================================================
+- name: "18.8.20.1.5 (L2)'Turn off Internet Connection Wizard....' - 'Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The ExitOnMSICW setting (18.8.20.1.5)"
+   check_against: "{{ ExitOnMSICW_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\Software\Policies\Microsoft\Windows\Internet Connection Wizard"
+     -name "ExitOnMSICW"|Select-Object -ExpandProperty "ExitOnMSICW"
+   win_regedit_cmd:
+    path: HKLM:\Software\Policies\Microsoft\Windows\Internet Connection Wizard
+    name: "ExitOnMSICW"
+    data: "1"
+    type: dword
+  when: execute_18_8_20_1_5 == "YES"
+
+
+# ============================================================================
+# 18.8.20.1.6 (L2) Ensure 'Turn off Internet download for Web publishing and
+# online ordering wizards' is set to 'Enabled' (Scored)
+# ============================================================================
+- name: "18.8.20.1.6 (L2)'Turn off Internet..... ordering wizards'-'Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The NoWebServices setting (18.8.20.1.6)"
+   check_against: "{{ NoWebServices_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer"
+     -name "NoWebServices"|Select-Object -ExpandProperty "NoWebServices"
+   win_regedit_cmd:
+    path: HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer
+    name: "NoWebServices"
+    data: "1"
+    type: dword
+  when: execute_18_8_20_1_6 == "YES"
+
+
+# =============================================================================
+# 18.8.20.1.7 (L2) Ensure 'Turn off printing over HTTP' is set to 'Enabled'
+# =============================================================================
+- name: "18.8.20.1.7 (L2) Ensure 'Turn off printing over HTTP' set to 'Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The DisableHTTPPrinting setting (18.8.20.1.7)"
+   check_against: "{{ DisableHTTPPrinting_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\Software\Policies\Microsoft\Windows NT\Printers"
+     -name "DisableHTTPPrinting"|Select-Object
+     -ExpandProperty "DisableHTTPPrinting"
+   win_regedit_cmd:
+    path: HKLM:\Software\Policies\Microsoft\Windows NT\Printers
+    name: "DisableHTTPPrinting"
+    data: "1"
+    type: dword
+  when: execute_18_8_20_1_7 == "YES"
+
+
+# =============================================================================
+# 18.8.20.1.8 (L2) Ensure 'Turn off Registration if URL connection is
+# referring to Microsoft.com' is set to 'Enabled' (Scored)
+# =============================================================================
+- name: "18.8.20.1.8 (L2) 'Turn off Registration if...Microsoft.com'-'Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The NoRegistration setting (18.8.20.1.8)"
+   check_against: "{{ NoRegistration_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\Software\Policies\Microsoft\Windows\Registration Wizard Control"
+     -name "NoRegistration"|Select-Object -ExpandProperty "NoRegistration"
+   win_regedit_cmd:
+    path: HKLM:\Software\Policies\Microsoft\Windows\Registration Wizard Control
+    name: "NoRegistration"
+    data: "1"
+    type: dword
+  when: execute_18_8_20_1_8 == "YES"
+
+
+# ============================================================================
+# 18.8.20.1.9 (L2) Ensure 'Turn off Search Companion content file updates'
+# is set to 'Enabled' (Scored)
+# ============================================================================
+- name: "18.8.20.1.9 (L2)'Turn off Srch Cmpnn content file updates'-'Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The DisableContentFileUpdates setting (18.8.20.1.9)"
+   check_against: "{{ DisableContentFileUpdates_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\Software\Policies\Microsoft\SearchCompanion"
+     -name "DisableContentFileUpdates"|Select-Object
+     -ExpandProperty "DisableContentFileUpdates"
+   win_regedit_cmd:
+    path: HKLM:\Software\Policies\Microsoft\SearchCompanion
+    name: "DisableContentFileUpdates"
+    data: "1"
+    type: dword
+  when: execute_18_8_20_1_9 == "YES"
+
+
+# ============================================================================
+# 18.8.20.1.10 (L2) Ensure 'Turn off the "Order Prints" picture task' is
+# set to 'Enabled' (Scored)
+# ============================================================================
+- name: "18.8.20.1.10 (L2) 'Turn off the 'Order Prints' picture task'-'Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The NoOnlinePrintsWizard setting (18.8.20.1.10)"
+   check_against: "{{ NoOnlinePrintsWizard_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer"
+     -name "NoOnlinePrintsWizard"|Select-Object
+     -ExpandProperty "NoOnlinePrintsWizard"
+   win_regedit_cmd:
+    path: HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer
+    name: "NoOnlinePrintsWizard"
+    data: "1"
+    type: dword
+  when: execute_18_8_20_1_10 == "YES"
+
+
+# ============================================================================
+# 18.8.20.1.11 (L2) Ensure 'Turn off the 'Publish to Web' task for files
+# and folders' is set to 'Enabled' (Scored)
+# ============================================================================
+- name: "18.8.20.1.11 (L2) Ensure 'Turn off the...files and folders'-'Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The NoPublishingWizard setting (18.8.20.1.11)"
+   check_against: "{{ NoPublishingWizard_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer"
+     -name "NoPublishingWizard"|Select-Object
+     -ExpandProperty "NoPublishingWizard"
+   win_regedit_cmd:
+    path: HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer
+    name: "NoPublishingWizard"
+    data: "1"
+    type: dword
+  when: execute_18_8_20_1_11 == "YES"
+
+
+# =============================================================================
+# 18.8.20.1.12 (L2) Ensure 'Turn off the Windows Messenger Customer Experience
+# Improvement Program' is set to 'Enabled' (Scored)
+# =============================================================================
+- name: "18.8.20.1.12 (L2) 'Turn off the...Improvement Program'-'Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The CEIP setting (18.8.20.1.12)"
+   check_against: "{{ CEIP_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path "HKLM:\SOFTWARE\Policies\Microsoft\Messenger\Client"
+     -name "CEIP"|Select-Object -ExpandProperty "CEIP"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Messenger\Client
+    name: "CEIP"
+    data: "2"
+    type: dword
+  when: execute_18_8_20_1_12 == "YES"
+
+
+# ============================================================================
+# 18.8.20.1.13 (L2) Ensure 'Turn off Windows Customer Experience Improvement
+# Program' is set to 'Enabled' (Scored)
+# ============================================================================
+- name: "18.8.20.1.13 (L2)'Turn off Windows....Improvement Program'-'Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The CEIPEnable setting (18.8.20.1.13)"
+   check_against: "{{ CEIPEnable_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Policies\Microsoft\SQMClient\Windows"
+     -name "CEIPEnable"|Select-Object -ExpandProperty "CEIPEnable"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\SQMClient\Windows
+    name: "CEIPEnable"
+    data: "0"
+    type: dword
+  when: execute_18_8_20_1_13 == "YES"
+
+
+# ============================================================================
+# 18.8.20.1.14 (L2) Ensure 'Turn off Windows Error Reporting' is set to
+# 'Enabled' (Scored)
+# ============================================================================
+- name: "18.8.20.1.14 (L2)'Turn off Windows Error Reporting' set to 'Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The Disabled setting (18.8.20.1.14)"
+   check_against: "{{ Disabled_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\Software\Policies\Microsoft\Windows\Windows Error Reporting"
+     -name "Disabled"|Select-Object -ExpandProperty "Disabled"
+   win_regedit_cmd:
+    path: HKLM:\Software\Policies\Microsoft\Windows\Windows Error Reporting
+    name: "Disabled"
+    data: "1"
+    type: dword
+  when: execute_18_8_20_1_14 == "YES"
+
+
+# ============================================================================
+# 18.8.23.1 (L2) Ensure 'Support device authentication using certificate'
+# is set to 'Enabled: Automatic' (Scored)
+# ============================================================================
+- name: "18.8.23.1 (L2) 'Support device auth using certificate'-'Enabled:Auto.'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The DevicePKInitBehavior setting (18.8.23.1)"
+   check_against: "{{ DevicePKInitBehavior_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\kerberos\parameters"
+     -name "DevicePKInitBehavior"|Select-Object
+     -ExpandProperty "DevicePKInitBehavior"
+   win_regedit_cmd:
+    path: "{{ Policies_reg }}System\\kerberos\\parameters"
+    name: "DevicePKInitBehavior"
+    data: "1"
+    type: dword
+  when: execute_18_8_23_1 == "YES"
+
+
+# ============================================================================
+- name: "18.8.23.1 (L2) 'Support device auth using certificate'-'Enabled:Auto.'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The DevicePKInitEnabled setting (18.8.23.1)"
+   check_against: "{{ DevicePKInitEnabled_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\kerberos\parameters"
+     -name "DevicePKInitEnabled"|Select-Object
+     -ExpandProperty "DevicePKInitEnabled"
+   win_regedit_cmd:
+    path: "{{ Policies_reg }}System\\kerberos\\parameters"
+    name: "DevicePKInitEnabled"
+    data: "1"
+    type: dword
+  when: execute_18_8_23_1 == "YES"
+
+
+# ============================================================================
+# 18.8.24.1 (L2) Ensure 'Disallow copying of user input methods to the system
+# account for sign-in' is set to 'Enabled' (Scored)
+# ============================================================================
+- name: "18.8.24.1 (L2)'Disallow....system account for sign-in'-'Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The BlockUserInputMethodsForSignIn setting (18.8.24.1)"
+   check_against: "{{ BlockUserInputMethodsForSignIn_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\Software\Policies\Microsoft\Control Panel\International"
+     -name "BlockUserInputMethodsForSignIn"|Select-Object
+     -ExpandProperty "BlockUserInputMethodsForSignIn"
+   win_regedit_cmd:
+    path: HKLM:\Software\Policies\Microsoft\Control Panel\International
+    name: "BlockUserInputMethodsForSignIn"
+    data: "1"
+    type: dword
+  when: execute_18_8_24_1 == "YES"
+
+
+# ============================================================================
+# 18.8.25.1 (L1) Ensure 'Block user from showing account details on sign-in'
+# is set to 'Enabled' (Scored)
+# ============================================================================
+- name: "18.8.25.1 (L1)'Block user from shwng acct details on sign-in'-Enabled"
+  include_tasks: win_check.yml
+  vars:
+   title: "The BlockUserFromShowingAccountDetailsOnSignin setting (18.8.25.1)"
+   check_against: "{{ BlckUsrFrmShwingAccntDetailsOnSignin_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\Software\Policies\Microsoft\Windows\System"
+     -name "BlockUserFromShowingAccountDetailsOnSignin"|Select-Object
+     -ExpandProperty "BlockUserFromShowingAccountDetailsOnSignin"
+   win_regedit_cmd:
+    path: HKLM:\Software\Policies\Microsoft\Windows\System
+    name: "BlockUserFromShowingAccountDetailsOnSignin"
+    data: "1"
+    type: dword
+  when: execute_18_8_25_1 == "YES"
+
+
+# =============================================================================
+# 18.8.25.2 (L1) Ensure 'Do not display network selection UI' is set to
+# 'Enabled' (Scored)
+# =============================================================================
+- name: "18.8.25.2 (L1) Ensure 'Do not display network selection UI'-'Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The DontDisplayNetworkSelectionUI setting (18.8.25.2)"
+   check_against: "{{ DontDisplayNetworkSelectionUI_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System"
+     -name "DontDisplayNetworkSelectionUI"|Select-Object
+     -ExpandProperty "DontDisplayNetworkSelectionUI"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\System
+    name: "DontDisplayNetworkSelectionUI"
+    data: "1"
+    type: dword
+  when: execute_18_8_25_2 == "YES"
+
+
+# =============================================================================
+# 18.8.25.3 (L1) Ensure 'Do not enumerate connected users on domain-joined
+# computers' is set to 'Enabled' (Scored)
+# =============================================================================
+- name: "18.8.25.3 (L1) 'Do not enumerate....domain-joined computers'-'Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The DontEnumerateConnectedUsers setting (18.8.25.3)"
+   check_against: "{{ DontEnumerateConnectedUsers_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System"
+     -name "DontEnumerateConnectedUsers"|Select-Object
+     -ExpandProperty "DontEnumerateConnectedUsers"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\System
+    name: "DontEnumerateConnectedUsers"
+    data: "1"
+    type: dword
+  when: execute_18_8_25_3 == "YES"
+
+
+# =============================================================================
+# 18.8.25.4 (L1) Ensure 'Enumerate local users on domain-joined computers' is
+# set to 'Disabled' (Scored)
+# =============================================================================
+- name: "18.8.25.4 (L1)'Enumerate local usrs on domain-joined cmptrs'-Disabled"
+  include_tasks: win_check.yml
+  vars:
+   title: "The EnumerateLocalUsers setting (18.8.25.4)"
+   check_against: "{{ EnumerateLocalUsers_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System"
+     -name "EnumerateLocalUsers"|Select-Object
+     -ExpandProperty "EnumerateLocalUsers"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\System
+    name: "EnumerateLocalUsers"
+    data: "0"
+    type: dword
+  when: execute_18_8_25_4 == "YES"
+
+
+# ============================================================================
+# 18.8.25.5 (L1) Ensure 'Turn off app notifications on the lock screen' is set
+# to 'Enabled' (Scored)
+# ============================================================================
+- name: "18.8.25.5 (L1)'Turn off app notifications on the lock screen'-Enabled"
+  include_tasks: win_check.yml
+  vars:
+   title: "The DisableLockScreenAppNotifications setting (18.8.25.5)"
+   check_against: "{{ DisableLockScreenAppNotifications_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System"
+     -name "DisableLockScreenAppNotifications"|Select-Object
+     -ExpandProperty "DisableLockScreenAppNotifications"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\System
+    name: "DisableLockScreenAppNotifications"
+    data: "1"
+    type: dword
+  when: execute_18_8_25_5 == "YES"
+
+
+# ============================================================================
+# 18.8.25.6 (L1) Ensure 'Turn on convenience PIN sign-in' is set to 'Disabled'
+# ============================================================================
+- name: "18.8.25.6 (L1) 'Turn on convenience PIN sign-in' is set to 'Disabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The AllowDomainPINLogon setting (18.8.25.6)"
+   check_against: "{{ AllowDomainPINLogon_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System"
+     -name "AllowDomainPINLogon"|Select-Object
+     -ExpandProperty "AllowDomainPINLogon"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\System
+    name: "AllowDomainPINLogon"
+    data: "0"
+    type: dword
+  when: execute_18_8_25_6 == "YES"
+
+
+# =============================================================================
+# 18.8.26.1 (L1) Ensure 'Untrusted Font Blocking' is set to 'Enabled: Block
+# untrusted fonts and log events' (Scored)
+# =============================================================================
+- name: "18.8.26.1 (L1)'Untrstd Fnt Blcking'-'Enabled:Blck untrstd fnts-log...'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The MitigationOptions_FontBocking setting (18.8.26.1)"
+   check_against: "{{ MitigationOptions_FontBocking_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\MitigationOptions"
+     -name "MitigationOptions_FontBocking"|Select-Object
+     -ExpandProperty "MitigationOptions_FontBocking"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\MitigationOptions
+    name: "MitigationOptions_FontBocking"
+    data: "1000000000000"
+    type: string
+  when: execute_18_8_25_6_1 == "YES"
+
+
+# =============================================================================
+# 18.8.29.5.1 (L2) Ensure 'Allow network connectivity during connected-standby
+# (on battery)' is set to 'Disabled' (Scored)
+# =============================================================================
+- name: "18.8.29.5.1 (L2)'Allow.....connected-standby (on battery)'='Disabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The DCSettingIndex setting (18.8.29.5.1)"
+   check_against: "{{ DCSettingIndex_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Policies\Microsoft\Power\PowerSettings\f15576e8-98b7-4186-b944-eafa664402d9"
+     -name "DCSettingIndex"|Select-Object -ExpandProperty "DCSettingIndex"
+   win_regedit_cmd:
+    path: "{{ Powersetting_reg }}f15576e8-98b7-4186-b944-eafa664402d9"
+    name: "DCSettingIndex"
+    data: "1"
+    type: dword
+  when: execute_18_8_29_5_1 == "YES"
+
+
+# ============================================================================
+# 18.8.29.5.2 (L2) Ensure 'Allow network connectivity during connected-standby
+# (plugged in)' is set to 'Disabled' (Scored)
+# ============================================================================
+- name: "18.8.29.5.2 (L2)'Allow network.......(plugged in)'-'Disabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The ACSettingIndex setting (18.8.29.5.2)"
+   check_against: "{{ ACSettingIndex_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Policies\Microsoft\Power\PowerSettings\f15576e8-98b7-4186-b944-eafa664402d9"
+     -name "ACSettingIndex"|Select-Object -ExpandProperty "ACSettingIndex"
+   win_regedit_cmd:
+    path: "{{ Powersetting_reg }}f15576e8-98b7-4186-b944-eafa664402d9"
+    name: "ACSettingIndex"
+    data: "1"
+    type: dword
+  when: execute_18_8_29_5_2 == "YES"
+
+
+# ============================================================================
+# 18.8.29.5.3 (L2) Ensure 'Require a password when a computer wakes
+# (on battery)' is set to 'Enabled' (Scored)
+# ============================================================================
+- name: "18.8.29.5.3 (L2) 'Require a password.....wakes (on battery)'-'Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The DCSettingIndex setting (18.8.29.5.3)"
+   check_against: "{{ DCSettingIndex2_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Policies\Microsoft\Power\PowerSettings\0e796bdb-100d-47d6-a2d5-f7d2daa51f51"
+     -name "DCSettingIndex"|Select-Object -ExpandProperty "DCSettingIndex"
+   win_regedit_cmd:
+    path: "{{ Powersetting_reg }}0e796bdb-100d-47d6-a2d5-f7d2daa51f51"
+    name: "DCSettingIndex"
+    data: "1"
+    type: dword
+  when: execute_18_8_29_5_3 == "YES"
+
+
+# =============================================================================
+# 18.8.29.5.4 (L2) Ensure 'Require a password when a computer wakes
+# (plugged in)' is set to 'Enabled' (Scored)
+# =============================================================================
+- name: "18.8.29.5.4 (L2)'Require a password when a computer wakes..'-'Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The ACSettingIndex setting (18.8.29.5.4)"
+   check_against: "{{ ACSettingIndex2_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Policies\Microsoft\Power\PowerSettings\0e796bdb-100d-47d6-a2d5-f7d2daa51f51"
+     -name "ACSettingIndex"|Select-Object -ExpandProperty "ACSettingIndex"
+   win_regedit_cmd:
+    path: "{{ Powersetting_reg }}0e796bdb-100d-47d6-a2d5-f7d2daa51f51"
+    name: "ACSettingIndex"
+    data: "1"
+    type: dword
+  when: execute_18_8_29_5_4 == "YES"
+
+
+# =============================================================================
+# 18.8.31.1 (L1) Ensure 'Configure Offer Remote Assistance' is set to 'Disabled'
+# =============================================================================
+- name: "18.8.31.1 (L1) Ensure 'Configure Offer Remote Assistance'-'Disabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The fAllowUnsolicited setting (18.8.31.1)"
+   check_against: "{{ fAllowUnsolicited_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\Software\Policies\Microsoft\Windows NT\Terminal Services"
+     -name "fAllowUnsolicited"|Select-Object -ExpandProperty "fAllowUnsolicited"
+   win_regedit_cmd:
+    path: HKLM:\Software\Policies\Microsoft\Windows NT\Terminal Services
+    name: "fAllowUnsolicited"
+    data: "0"
+    type: dword
+  when: execute_18_8_31_1 == "YES"
+
+
+# =============================================================================
+# 18.8.31.2 (L1)  'Configure Solicited Remote Assistance' is set to 'Disabled'
+# =============================================================================
+- name: "18.8.31.2 (L1) 'Configure Solicited Remote Assistance'-'Disabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The fAllowToGetHelp setting (18.8.31.2)"
+   check_against: "{{ fAllowToGetHelp_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\Software\Policies\Microsoft\Windows NT\Terminal Services"
+     -name "fAllowToGetHelp"|Select-Object -ExpandProperty "fAllowToGetHelp"
+   win_regedit_cmd:
+    path: HKLM:\Software\Policies\Microsoft\Windows NT\Terminal Services
+    name: "fAllowToGetHelp"
+    data: "0"
+    type: dword
+  when: execute_18_8_31_2 == "YES"
+
+
+# =============================================================================
+# 18.8.32.1 (L1) Ensure 'Enable RPC Endpoint Mapper Client Authentication' is
+#  set to 'Enabled' (MS only)
+# =============================================================================
+- name: "18.8.32.1 (L1)'Enable RPC Endpnt Mppr Client Authentication'-'Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The EnableAuthEpResolution setting (18.8.32.1)"
+   check_against: "{{ EnableAuthEpResolution_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path "HKLM:\Software\Policies\Microsoft\Windows NT\Rpc"
+     -name "EnableAuthEpResolution"|Select-Object
+     -ExpandProperty "EnableAuthEpResolution"
+   win_regedit_cmd:
+    path: HKLM:\Software\Policies\Microsoft\Windows NT\Rpc
+    name: "EnableAuthEpResolution"
+    data: "1"
+    type: dword
+  when: >
+    execute_18_8_32_1 == "YES" and
+    DomainR_out != "4" and
+    DomainR_out != "5"
+
+
+# ============================================================================
+# 18.8.32.2 (L2) Ensure 'Restrict Unauthenticated RPC clients' is set to
+# 'Enabled: Authenticated' (MS only) (Scored)
+# ============================================================================
+- name: "18.8.32.2 (L2)'Restrict Unauthenticated RPC clients'-'Enabled:Auth'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The RestrictRemoteClients setting (18.8.32.2)"
+   check_against: "{{ RestrictRemoteClients_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path "HKLM:\Software\Policies\Microsoft\Windows NT\Rpc"
+     -name "RestrictRemoteClients"|Select-Object
+     -ExpandProperty "RestrictRemoteClients"
+   win_regedit_cmd:
+    path: HKLM:\Software\Policies\Microsoft\Windows NT\Rpc
+    name: "RestrictRemoteClients"
+    data: "1"
+    type: dword
+  when: >
+    execute_18_8_32_2 == "YES" and
+    DomainR_out != "4" and
+    DomainR_out != "5"
+
+
+# =============================================================================
+# 18.8.39.5.1 (L2) Ensure 'Microsoft Support Diagnostic Tool: Turn on MSDT
+# interactive communication with support provider' is set to 'Disabled' (Scored)
+# =============================================================================
+- name: "18.8.39.5.1 (L2)'Microsoft Support Diagnostic....provider'-'Disabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The DisableQueryRemoteServer setting (18.8.39.5.1)"
+   check_against: "{{ DisableQueryRemoteServer_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\Software\Policies\Microsoft\Windows\ScriptedDiagnosticsProvider\Policy"
+     -name "DisableQueryRemoteServer"|Select-Object
+     -ExpandProperty "DisableQueryRemoteServer"
+   win_regedit_cmd:
+    path: "{{ windows_reg }}ScriptedDiagnosticsProvider\\Policy"
+    name: "DisableQueryRemoteServer"
+    data: "0"
+    type: dword
+  when: execute_18_8_39_5_1 == "YES"
+
+
+# =============================================================================
+# 18.8.39.11.1 (L2) Ensure 'Enable/Disable PerfTrack' is set to 'Disabled'
+# =============================================================================
+- name: "18.8.39.11.1 (L2) 'Enable/Disable PerfTrack' is set to 'Disabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The ScenarioExecutionEnabled setting (18.8.39.11.1)"
+   check_against: "{{ ScenarioExecutionEnabled_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\Software\Policies\Microsoft\Windows\WDI\{9c5a40da-b965-4fc3-8781-88dd50a6299d}"
+     -name "ScenarioExecutionEnabled"|Select-Object
+     -ExpandProperty "ScenarioExecutionEnabled"
+   win_regedit_cmd:
+    path: "{{ windows_reg }}WDI\\{9c5a40da-b965-4fc3-8781-88dd50a6299d}"
+    name: "ScenarioExecutionEnabled"
+    data: "0"
+    type: dword
+  when: execute_18_8_39_11_1 == "YES"
+
+
+# =============================================================================
+# 18.8.41.1 (L2) Ensure 'Turn off the advertising ID' is set to 'Enabled'
+# =============================================================================
+- name: "18.8.41.1 (L2) 'Turn off the advertising ID' is set to 'Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The DisabledByGroupPolicy setting (18.8.41.1)"
+   check_against: "{{ DisabledByGroupPolicy_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\policies\Microsoft\Windows\AdvertisingInfo"
+     -name "DisabledByGroupPolicy"|Select-Object
+     -ExpandProperty "DisabledByGroupPolicy"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\policies\Microsoft\Windows\AdvertisingInfo
+    name: "DisabledByGroupPolicy"
+    data: "1"
+    type: dword
+  when: execute_18_8_41_1 == "YES"
+
+
+# =============================================================================
+# 18.8.44.1.1 (L2) Ensure 'Enable Windows NTP Client' is set to 'Enabled'
+# =============================================================================
+- name: "18.8.44.1.1 (L2) Ensure 'Enable Windows NTP Client' set to 'Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The Enabled setting (18.8.44.1.1)"
+   check_against: "{{ Enabled_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\System\CurrentControlSet\Services\W32Time\TimeProviders\NtpClient"
+     -name "Enabled"|Select-Object -ExpandProperty "Enabled"
+   win_regedit_cmd:
+    path: "{{ tp_reg }}NtpClient"
+    name: "Enabled"
+    data: "1"
+    type: dword
+  when: execute_18_8_44_1_1 == "YES"
+
+
+# =============================================================================
+# 18.8.44.1.2 (L2) 'Enable Windows NTP Server' is set to 'Disabled' (MS only)
+# =============================================================================
+- name: "18.8.44.1.2 (L2)'Enable Windows NTP Server' set 'Disabled' (MS only)"
+  include_tasks: win_check.yml
+  vars:
+   title: "The Enabled setting (18.8.44.1.2)"
+   check_against: "{{ Enabled2_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Policies\Microsoft\W32Time\TimeProviders\NtpServer"
+     -name "Enabled"|Select-Object -ExpandProperty "Enabled"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\W32Time\TimeProviders\NtpServer
+    name: "Enabled"
+    data: "0"
+    type: dword
+  when: >
+    execute_18_8_44_1_2 == "YES" and
+    DomainR_out != "4" and
+    DomainR_out != "5"
+
+
+# ============================================================================
+# 19.6.5.1.1 (L2)'Turn off Help Experience Improvement Program' set to 'Enabled'
+# =============================================================================
+- name: "19.6.5.1.1 (L2)'Turn off Help Exprnc Improvement Program'-'Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The NoImplicitFeedback setting (19.6.5.1.1)"
+   check_against: "{{ NoImplicitFeedback_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKCU:\Software\Policies\Microsoft\Assistance\Client\1.0"
+     -name "NoImplicitFeedback"|Select-Object
+     -ExpandProperty "NoImplicitFeedback"
+   win_regedit_cmd:
+    path: 'HKCU:\Software\Policies\Microsoft\Assistance\Client\1.0'
+    name: "NoImplicitFeedback"
+    data: "1"
+    type: dword
+  when: execute_19_6_5_1_1 == "YES"

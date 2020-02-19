@@ -1,0 +1,50 @@
+---
+- name: "Shell Check"
+  win_shell: "{{ win_shell_cmd }}"
+  register: shell_exec_o
+  ignore_errors: true
+
+- name: "Set output variable"
+  set_fact:
+   shell_exec_o="{{ shell_exec_o.stdout_lines|list|join }}"
+
+- block:
+   - include: debug_block_less_than_equal_to_but_not_zero.yml
+     vars:
+      msg_string: "{{ title }}"
+      check_value: "{{ shell_exec_o }}"
+
+- name: "Shell Update"
+  win_regedit:
+   path: "{{ win_regedit_cmd.path }}"
+   name: "{{ win_regedit_cmd.name }}"
+   data: "{{ win_regedit_cmd.data }}"
+   type: "{{ win_regedit_cmd.type }}"
+  when: >
+    remediate == "YES" and
+    shell_exec_o|int > check_against or
+    shell_exec_o|int == 0
+
+# ***************************************************************************
+
+- name: "Shell Recheck"
+  win_shell: "{{ win_shell_cmd }}"
+  register: shell_exec_o_recheck
+  ignore_errors: true
+  when: >
+    remediate == "YES" and
+    shell_exec_o|int > check_against or
+    shell_exec_o|int == 0
+
+- name: "Set output variable"
+  set_fact:
+   shell_exec_ao_recheck="{{ shell_exec_o_recheck.stdout_lines|list|join }}"
+  when: remediate == "YES" and shell_exec_o_recheck is not skipped
+
+- block:
+   - include: debug_block_less_than_equal_to_but_not_zero.yml
+     vars:
+      msg_string: "Recheck: {{ title }}"
+      check_value: "{{ shell_exec_ao_recheck }}"
+  when: >
+    shell_exec_o_recheck.changed

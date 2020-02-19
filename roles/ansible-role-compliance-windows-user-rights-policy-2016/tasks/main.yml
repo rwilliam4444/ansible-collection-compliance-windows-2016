@@ -1,0 +1,1519 @@
+---
+# ==================================================================
+# tasks file for ansible-role-compliance-windows-user-rights-policy-2016
+# ==================================================================
+#
+#
+# ==================================================================
+# collect hostname and ip address information
+# ==================================================================
+- name: collect hostname
+  win_shell: >
+    $sysinfo=Get-WmiObject -Class win32_computersystem;
+    $server="{0}.{1}" -f $sysinfo.Name, $sysinfo.domain;
+    $server
+  register: FQDN_hostname
+  ignore_errors: true
+
+- name: set output
+  set_fact:
+    FQDN_hostname: "{{ FQDN_hostname.stdout_lines | join }}"
+
+- block:
+    - debug:
+        msg:
+          - "The FQDN hostname is.....{{ FQDN_hostname }}"
+
+- name: collect ip address
+  win_shell: >
+     (Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway -ne
+     $null -and $_.netadapter.status -ne "Disconnected"}).ipv4address.ipaddress
+  register: default_ipv4_address
+  ignore_errors: true
+
+- name: set output
+  set_fact:
+    default_ipv4_address: "{{ default_ipv4_address.stdout_lines }}"
+
+- block:
+    - debug:
+        msg:
+          - "The default_ipv4_address is.....{{ default_ipv4_address }}"
+
+
+# ==================================================================
+# Get O\S information
+# ==================================================================
+- name: "Get Operating Systerm version information"
+  win_shell: (get-WMIobject win32_operatingsystem).Name
+  register: Win_os_ver_out
+  ignore_errors: true
+
+- name: "set output variable"
+  set_fact:
+    Win_os_ver_out="{{ Win_os_ver_out.stdout_lines|list|join }}"
+
+- name: "check and ensure if the windows server is a 2016 server"
+  fail:
+    msg: "This server is NOT a windows 2016 server: {{ Win_os_ver_out }}"
+  when: approved_windows_ver not in Win_os_ver_out
+
+- block:
+    - debug:
+        msg:
+          - "This server IS a windows 2016 server: {{ Win_os_ver_out }}"
+  when: approved_windows_ver in Win_os_ver_out
+#
+#
+# ==================================================================
+# Get server role information
+# ==================================================================
+- name: "Get server role information"
+  win_shell: wmic.exe Computersystem get DomainRole
+  register: DomainRole
+  ignore_errors: true
+
+- name: "set output variable"
+  set_fact:
+    DomainRole: "{{ DomainRole.stdout | regex_search(regexp,'\\1')|list|join }}"
+  vars:
+    regexp: 'DomainRole\s+(\d+)'
+
+- block:
+    - debug:
+        msg:
+          - "The DomainRole is NOT a Backup DC or a DC: '{{ DomainRole }}'."
+  when: DomainRole != "4" and DomainRole != "5"
+
+- block:
+    - debug:
+        msg:
+          - "The DomainRole is a Backup DC or a DC:'{{ DomainRole }}'."
+  when: DomainRole == "4" or DomainRole == "5"
+
+
+# ==================================================================
+# 2.2.1 (L1) 'Access Credential Manager as a trusted caller' is set to 'No One'
+# ==================================================================
+- name: "2.2.1 (L1) 'Access Credential Mgr as a trusted caller' set 'No One'"
+  win_user_right:
+    name: SeTrustedCredManAccessPrivilege
+    users:
+    # - remove all users from this policy
+    action: set
+  when: remediate == "YES" and execute_2_2_1 == "YES"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.1"
+  when: >
+    remediate == "YES" and execute_2_2_1 == "YES"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.1"
+  when: >
+    remediate != "YES" and execute_2_2_1 == "YES"
+
+
+# ==================================================================
+# 2.2.2 (L1) Configure 'Access this computer from the network' (Scored)
+# ==================================================================
+- name: "2.2.2 (L1) Configure 'Access this computer from the network'-NOT A DC"
+  win_user_right:
+    name: SeNetworkLogonRight
+    users:
+      - Administrators
+      - Authenticated Users
+    action: set
+  when: >
+    remediate == "YES" and
+    execute_2_2_2 == "YES" and
+    DomainRole != "4" and
+    DomainRole != "5"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.2"
+  when: >
+    remediate == "YES" and
+    execute_2_2_2 == "YES" and
+    DomainRole != "4" and
+    DomainRole != "5"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.2"
+  when: >
+    remediate != "YES" and
+    execute_2_2_2 == "YES" and
+    DomainRole != "4" and
+    DomainRole != "5"
+
+# -----------------------------------------------------------------------
+
+- name: "2.2.2 (L1) Configure 'Access this computer from the network' - DC"
+  win_user_right:
+    name: SeNetworkLogonRight
+    users:
+      - Administrators
+      - Authenticated Users
+      - ENTERPRISE DOMAIN CONTROLLERS
+    action: set
+  when: >
+    remediate == "YES" and
+    execute_2_2_2 == "YES" and
+    (DomainRole == "4" or DomainRole == "5")
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.2"
+  when: >
+    remediate == "YES" and
+    execute_2_2_2 == "YES" and
+    (DomainRole == "4" or DomainRole == "5")
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.2"
+  when: >
+    remediate != "YES" and
+    execute_2_2_2 == "YES" and
+    (DomainRole == "4" or DomainRole == "5")
+
+
+# ==================================================================
+# 2.2.3 (L1) 'Act as part of the operating system' is set to 'No One'
+# ==================================================================
+- name: "2.2.3 (L1) 'Act as part of the operating system' is set to 'No One'"
+  win_user_right:
+    name: SeTcbPrivilege
+    users:
+    # - remove all users from this policy
+    action: set
+  when: remediate == "YES" and execute_2_2_3 == "YES"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.3"
+  when: >
+    remediate == "YES" and
+    execute_2_2_3 == "YES"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.3"
+  when: >
+    remediate != "YES" and
+    execute_2_2_3 == "YES"
+
+
+# ==================================================================
+# 2.2.4 (L1) 'Add workstations to domain' is set to 'Administrators' (DC only)
+# ==================================================================
+- name: "2.2.4 (L1) 'Add workstations to domain' set to 'Admins' (DC only)"
+  win_user_right:
+    name: SeMachineAccountPrivilege
+    users:
+      - Administrators
+    action: set
+  when: >
+    remediate == "YES" and
+    execute_2_2_4 == "YES" and
+    (DomainRole == "4" or DomainRole == "5")
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.4"
+  when: >
+    remediate == "YES" and
+    execute_2_2_4 == "YES" and
+    (DomainRole == "4" or DomainRole == "5")
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.4"
+  when: >
+    remediate != "YES" and
+    execute_2_2_4 == "YES" and
+    (DomainRole == "4" or DomainRole == "5")
+
+
+# ==================================================================
+# 2.2.5 (L1) 'Adjust memory quotas for a process'
+# ==================================================================
+- name: "2.2.5 (L1) Ensure 'Adjust memory quotas for a process'"
+  win_user_right:
+    name: SeIncreaseQuotaPrivilege
+    users:
+      - Administrators
+      - LOCAL SERVICE
+      - NETWORK SERVICE
+    action: set
+  when: remediate == "YES" and execute_2_2_5 == "YES"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.5"
+  when: >
+    remediate == "YES" and
+    execute_2_2_5 == "YES"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.5"
+  when: >
+    remediate != "YES" and
+    execute_2_2_5 == "YES"
+
+
+# ==================================================================
+# 2.2.6 (L1) Configure 'Allow log on locally' (Scored)
+# ==================================================================
+- name: "2.2.6 (L1) Configure 'Allow log on locally' (Scored) - NOT A DC"
+  win_user_right:
+    name: SeInteractiveLogonRight
+    users:
+      - Administrators
+    action: set
+  when: >
+    remediate == "YES" and
+    execute_2_2_6 == "YES" and
+    DomainRole != "4" and
+    DomainRole != "5"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.6"
+  when: >
+    remediate == "YES" and
+    execute_2_2_6 == "YES" and
+    DomainRole != "4" and
+    DomainRole != "5"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.6"
+  when: >
+    remediate != "YES" and
+    execute_2_2_6 == "YES" and
+    DomainRole != "4" and
+    DomainRole != "5"
+
+# -----------------------------------------------------------------------
+
+- name: "2.2.6 (L1) Configure 'Allow log on locally' (Scored) - DC"
+  win_user_right:
+    name: SeInteractiveLogonRight
+    users:
+      - Administrators
+      - ENTERPRISE DOMAIN CONTROLLERS
+    action: set
+  when: >
+    remediate == "YES" and
+    execute_2_2_6 == "YES" and
+    (DomainRole == "4" or DomainRole == "5")
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.6"
+  when: >
+    remediate == "YES" and
+    execute_2_2_6 == "YES" and
+    (DomainRole == "4" or DomainRole == "5")
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.6"
+  when: >
+    remediate != "YES" and
+    execute_2_2_6 == "YES" and
+    (DomainRole == "4" or DomainRole == "5")
+
+
+# ==================================================================
+# 2.2.7 (L1) Configure 'Allow log on through Remote Desktop Services'
+# ==================================================================
+- name: "2.2.7 (L1) 'Allow log on through Remote Desktop Services' - NOT A DC"
+  win_user_right:
+    name: SeRemoteInteractiveLogonRight
+    users:
+      - Administrators
+      - Remote Desktop Users
+    action: set
+  when: >
+    remediate == "YES" and
+    execute_2_2_7 == "YES" and
+    DomainRole != "4" and
+    DomainRole != "5"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.7"
+  when: >
+    remediate == "YES" and
+    execute_2_2_7 == "YES" and
+    DomainRole != "4" and
+    DomainRole != "5"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.7"
+  when: >
+    remediate != "YES" and
+    execute_2_2_7 == "YES" and
+    DomainRole != "4" and
+    DomainRole != "5"
+
+# -----------------------------------------------------------------------
+
+- name: "2.2.7 (L1) 'Allow log on through Remote Desktop Services' - DC"
+  win_user_right:
+    name: SeRemoteInteractiveLogonRight
+    users:
+      - Administrators
+    action: set
+  when: >
+    remediate == "YES" and
+    execute_2_2_7 == "YES" and
+    (DomainRole == "4" or DomainRole == "5")
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.7"
+  when: >
+    remediate == "YES" and
+    execute_2_2_7 == "YES" and
+    (DomainRole == "4" or DomainRole == "5")
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.7"
+  when: >
+    remediate != "YES" and
+    execute_2_2_7 == "YES" and
+    (DomainRole == "4" or DomainRole == "5")
+
+
+# ==================================================================
+# 2.2.8 (L1) 'Back up files and directories' is set to 'Administrators'
+# ==================================================================
+- name: "2.2.8 (L1) 'Back up files and directories' is set to 'Administrators'"
+  win_user_right:
+    name: SeBackupPrivilege
+    users:
+      - Administrators
+    action: set
+  when: remediate == "YES" and execute_2_2_8 == "YES"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.8"
+  when: >
+    remediate == "YES" and
+    execute_2_2_8 == "YES"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.8"
+  when: >
+    remediate != "YES" and
+    execute_2_2_8 == "YES"
+
+
+# ==================================================================
+# 2.2.9 (L1) 'Change the system time' is set to 'Administrators, LOCAL SERVICE'
+# ==================================================================
+- name: "2.2.9 (L1) 'Change the system time' set to 'Admins, LOCAL SERVICE'"
+  win_user_right:
+    name: SeSystemtimePrivilege
+    users:
+      - Administrators
+      - LOCAL SERVICE
+    action: set
+  when: remediate == "YES" and execute_2_2_9 == "YES"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.9"
+  when: >
+    remediate == "YES" and
+    execute_2_2_9 == "YES"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.9"
+  when: >
+    remediate != "YES" and
+    execute_2_2_9 == "YES"
+
+
+# ==================================================================
+# 2.2.10 (L1) 'Change the time zone' is set to 'Administrators, LOCAL SERVICE'
+# ==================================================================
+- name: "2.2.10 (L1) 'Change the time zone' is set to 'Admins, LOCAL SERVICE'"
+  win_user_right:
+    name: SeTimeZonePrivilege
+    users:
+      - Administrators
+      - LOCAL SERVICE
+    action: set
+  when: remediate == "YES" and execute_2_2_10 == "YES"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.10"
+  when: >
+    remediate == "YES" and
+    execute_2_2_10 == "YES"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.10"
+  when: >
+    remediate != "YES" and
+    execute_2_2_10 == "YES"
+
+
+# ==================================================================
+# 2.2.11 (L1) 'Create a pagefile' is set to 'Administrators'
+# ==================================================================
+- name: "2.2.11 (L1) 'Create a pagefile' is set to 'Administrators'"
+  win_user_right:
+    name: SeCreatePagefilePrivilege
+    users:
+      - Administrators
+    action: set
+  when: remediate == "YES" and execute_2_2_11 == "YES"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.11"
+  when: >
+    remediate == "YES" and
+    execute_2_2_11 == "YES"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.11"
+  when: >
+    remediate != "YES" and
+    execute_2_2_11 == "YES"
+
+
+# ==================================================================
+# 2.2.12 (L1) 'Create a token object' is set to 'No One'
+# ==================================================================
+- name: "2.2.12 (L1) 'Create a token object' is set to 'No One'"
+  win_user_right:
+    name: SeCreateTokenPrivilege
+    users:
+    # - remove all users from this policy
+    action: set
+  when: remediate == "YES" and execute_2_2_12 == "YES"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.12"
+  when: >
+    remediate == "YES" and
+    execute_2_2_12 == "YES"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.12"
+  when: >
+    remediate != "YES" and
+    execute_2_2_12 == "YES"
+
+
+# ==================================================================
+# 2.2.13 (L1) 'Create global objects' set 'Admins, LCL SRVCE, NTWRK SRVC, SRVCE'
+# ==================================================================
+- name: "2.2.13 (L1)'Crt glbl objcts' set 'Admins, LCL SRVC, NTWRK SRVCE, SRVC'"
+  win_user_right:
+    name: SeCreateGlobalPrivilege
+    users:
+      - Administrators
+      - LOCAL SERVICE
+      - NETWORK SERVICE
+      - SERVICE
+    action: set
+  when: remediate == "YES" and execute_2_2_13 == "YES"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.13"
+  when: >
+    remediate == "YES" and
+    execute_2_2_13 == "YES"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.13"
+  when: >
+    remediate != "YES" and
+    execute_2_2_13 == "YES"
+
+
+# ==================================================================
+# 2.2.14 (L1) 'Create permanent shared objects' is set to 'No One'
+# ==================================================================
+- name: "2.2.14 (L1) 'Create permanent shared objects' is set to 'No One'"
+  win_user_right:
+    name: SeCreatePermanentPrivilege
+    users:
+    # - remove all users from this policy
+    action: set
+  when: remediate == "YES" and execute_2_2_14 == "YES"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.14"
+  when: >
+    remediate == "YES" and
+    execute_2_2_14 == "YES"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.14"
+  when: >
+    remediate != "YES" and
+    execute_2_2_14 == "YES"
+
+
+# ==================================================================
+# 2.2.15 (L1) Configure 'Create symbolic links' (Scored)
+# ==================================================================
+- name: "2.2.15 (L1) Configure 'Create symbolic links' (Scored)"
+  win_user_right:
+    name: SeCreateSymbolicLinkPrivilege
+    users:
+      - Administrators
+    action: set
+  when: remediate == "YES" and execute_2_2_15 == "YES"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.15"
+  when: >
+    remediate == "YES" and
+    execute_2_2_15 == "YES"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.15"
+  when: >
+    remediate != "YES" and
+    execute_2_2_15 == "YES"
+
+
+# ==================================================================
+# 2.2.16 (L1) 'Debug programs' is set to 'Administrators'
+# ==================================================================
+- name: "2.2.16 (L1) 'Debug programs' is set to 'Administrators'"
+  win_user_right:
+    name: SeDebugPrivilege
+    users:
+      - Administrators
+    action: set
+  when: remediate == "YES" and execute_2_2_16 == "YES"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.16"
+  when: >
+    remediate == "YES" and
+    execute_2_2_16 == "YES"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.16"
+  when: >
+    remediate != "YES" and
+    execute_2_2_16 == "YES"
+
+
+# ==================================================================
+# 2.2.17 (L1) Configure 'Deny access to this computer from the network'
+# ==================================================================
+- name: "2.2.17 (L1) 'Deny access to this computer from the network' - NOT A DC"
+  win_user_right:
+    name: SeDenyNetworkLogonRight
+    users:
+      - Guests
+    action: set
+  when: >
+    remediate == "YES" and
+    execute_2_2_17 == "YES" and
+    DomainRole != "4" and
+    DomainRole != "5"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.17"
+  when: >
+    remediate == "YES" and
+    execute_2_2_17 == "YES" and
+    DomainRole != "4" and
+    DomainRole != "5"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.17"
+  when: >
+    remediate != "YES" and
+    execute_2_2_17 == "YES" and
+    DomainRole != "4" and
+    DomainRole != "5"
+
+# -----------------------------------------------------------------------
+
+- name: "2.2.17 (L1) 'Deny access to this computer from the network' - DC"
+  win_user_right:
+    name: SeDenyNetworkLogonRight
+    users:
+      - Guests
+    action: set
+  when: >
+    remediate == "YES" and
+    execute_2_2_17 == "YES" and
+    (DomainRole == "4" or DomainRole == "5")
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.17"
+  when: >
+    remediate == "YES" and
+    execute_2_2_17 == "YES" and
+    (DomainRole == "4" or DomainRole == "5")
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.17"
+  when: >
+    remediate != "YES" and
+    execute_2_2_17 == "YES" and
+    (DomainRole == "4" or DomainRole == "5")
+
+
+# ==================================================================
+# 2.2.18 (L1) 'Deny log on as a batch job' to include 'Guests'
+# ==================================================================
+- name: "2.2.18 (L1) 'Deny log on as a batch job' to include 'Guests'"
+  win_user_right:
+    name: SeDenyBatchLogonRight
+    users:
+      - Guests
+    action: set
+  when: remediate == "YES" and execute_2_2_18 == "YES"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.18"
+  when: >
+    remediate == "YES" and
+    execute_2_2_18 == "YES"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.18"
+  when: >
+    remediate != "YES" and
+    execute_2_2_18 == "YES"
+
+
+# ==================================================================
+# 2.2.19 (L1) 'Deny log on as a service' to include 'Guests'
+# ==================================================================
+- name: "2.2.19 (L1) 'Deny log on as a service' to include 'Guests'"
+  win_user_right:
+    name: SeDenyServiceLogonRight
+    users:
+      - Guests
+    action: set
+  when: remediate == "YES" and execute_2_2_19 == "YES"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.19"
+  when: >
+    remediate == "YES" and
+    execute_2_2_19 == "YES"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.19"
+  when: >
+    remediate != "YES" and
+    execute_2_2_19 == "YES"
+
+
+# ==================================================================
+# 2.2.20 (L1) 'Deny log on locally' to include 'Guests'
+# ==================================================================
+- name: "2.2.20 (L1) 'Deny log on locally' to include 'Guests'"
+  win_user_right:
+    name: SeDenyInteractiveLogonRight
+    users:
+      - Guests
+    action: set
+  when: remediate == "YES" and execute_2_2_20 == "YES"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.20"
+  when: >
+    remediate == "YES" and
+    execute_2_2_20 == "YES"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.20"
+  when: >
+    remediate != "YES" and
+    execute_2_2_20 == "YES"
+
+
+# ==================================================================
+# 2.2.21 (L1) 'Deny log on through Remote Desktop Services' to 'Guests,Lcl acct'
+# ==================================================================
+- name: "2.2.21 (L1) 'Deny log on through Remote Desktop Services'"
+  win_user_right:
+    name: SeDenyRemoteInteractiveLogonRight
+    users:
+      - Guests
+    action: set
+  when: remediate == "YES" and execute_2_2_21 == "YES"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.21"
+  when: >
+    remediate == "YES" and
+    execute_2_2_21 == "YES"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.21"
+  when: >
+    remediate != "YES" and
+    execute_2_2_21 == "YES"
+
+
+# ==================================================================
+# 2.2.22 (L1) 'Enable computer and user accounts to be trusted for delegation'
+# ==================================================================
+- name: "2.2.22 (L1) 'Enable computer and user accounts to....' - NOT A DC"
+  win_user_right:
+    name: SeEnableDelegationPrivilege
+    users:
+    # - remove all users from this policy
+    action: set
+  when: >
+    remediate == "YES" and
+    execute_2_2_22 == "YES" and
+    DomainRole != "4" and
+    DomainRole != "5"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.22"
+  when: >
+    remediate == "YES" and
+    execute_2_2_22 == "YES" and
+    DomainRole != "4" and
+    DomainRole != "5"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.22"
+  when: >
+    remediate != "YES" and
+    execute_2_2_22 == "YES" and
+    DomainRole != "4" and
+    DomainRole != "5"
+
+# -----------------------------------------------------------------------
+
+- name: "2.2.22 (L1) 'Enable computer and user accounts to be trusted...' - DC"
+  win_user_right:
+    name: SeEnableDelegationPrivilege
+    users:
+      - Administrators
+    action: set
+  when: >
+    remediate == "YES" and
+    execute_2_2_22 == "YES" and
+    (DomainRole == "4" or DomainRole == "5")
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.22"
+  when: >
+    remediate == "YES" and
+    execute_2_2_22 == "YES" and
+    (DomainRole == "4" or DomainRole == "5")
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.22"
+  when: >
+    remediate != "YES" and
+    execute_2_2_22 == "YES" and
+    (DomainRole == "4" or DomainRole == "5")
+
+
+# ==================================================================
+# 2.2.23 (L1) 'Force shutdown from a remote system' is set to 'Administrators'
+# ==================================================================
+- name: "2.2.23 (L1) 'Force shutdown from a remote system' set 'Administrators'"
+  win_user_right:
+    name: SeRemoteShutdownPrivilege
+    users:
+      - Administrators
+    action: set
+  when: remediate == "YES" and execute_2_2_23 == "YES"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.23"
+  when: >
+    remediate == "YES" and
+    execute_2_2_23 == "YES"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.23"
+  when: >
+    remediate != "YES" and
+    execute_2_2_23 == "YES"
+
+
+# ==================================================================
+# 2.2.24 (L1) 'Generate security audits' set 'LOCAL SERVICE, NETWORK SERVICE'
+# ==================================================================
+- name: "2.2.24 (L1) 'Generate security audits' set 'LCL SRVC, NTWRK SRVC'"
+  win_user_right:
+    name: SeAuditPrivilege
+    users:
+      - LOCAL SERVICE
+      - NETWORK SERVICE
+    action: set
+  when: remediate == "YES" and execute_2_2_24 == "YES"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.24"
+  when: >
+    remediate == "YES" and
+    execute_2_2_24 == "YES"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.24"
+  when: >
+    remediate != "YES" and
+    execute_2_2_24 == "YES"
+
+
+# ==================================================================
+# 2.2.25 (L1) 'Impersonate a client after authentication'
+# ==================================================================
+- name: "2.2.25 (L1) 'Impersonate a client after authentication' - NOT A DC"
+  win_user_right:
+    name: SeImpersonatePrivilege
+    users:
+      - Administrators
+      - LOCAL SERVICE
+      - NETWORK SERVICE
+      - SERVICE
+    action: set
+  when: >
+    remediate == "YES" and
+    execute_2_2_25 == "YES" and
+    DomainRole != "4" and
+    DomainRole != "5"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.25"
+  when: >
+    remediate == "YES" and
+    execute_2_2_25 == "YES" and
+    DomainRole != "4" and
+    DomainRole != "5"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.25"
+  when: >
+    remediate != "YES" and
+    execute_2_2_25 == "YES" and
+    DomainRole != "4" and
+    DomainRole != "5"
+
+# -----------------------------------------------------------------------
+
+- name: "2.2.25 (L1) 'Impersonate a client after authentication' (Scored) - DC"
+  win_user_right:
+    name: SeImpersonatePrivilege
+    users:
+      - Administrators
+      - LOCAL SERVICE
+      - NETWORK SERVICE
+      - SERVICE
+    action: set
+  when: >
+    remediate == "YES" and
+    execute_2_2_25 == "YES" and
+    (DomainRole == "4" or DomainRole == "5")
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.25"
+  when: >
+    remediate == "YES" and
+    execute_2_2_25 == "YES" and
+    (DomainRole == "4" or DomainRole == "5")
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.25"
+  when: >
+    remediate != "YES" and
+    execute_2_2_25 == "YES" and
+    (DomainRole == "4" or DomainRole == "5")
+
+
+# ==================================================================
+# 2.2.26 (L1) 'Increase scheduling priority' is set to 'Administrators'
+# ==================================================================
+- name: "2.2.26 (L1) 'Increase scheduling priority' is set to 'Administrators'"
+  win_user_right:
+    name: SeIncreaseBasePriorityPrivilege
+    users:
+      - Administrators
+    action: set
+  when: remediate == "YES" and execute_2_2_26 == "YES"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.26"
+  when: >
+    remediate == "YES" and
+    execute_2_2_26 == "YES"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.26"
+  when: >
+    remediate != "YES" and
+    execute_2_2_26 == "YES"
+
+
+# ==================================================================
+# 2.2.27 (L1) 'Load and unload device drivers' is set to 'Administrators'
+# ==================================================================
+- name: "2.2.27 (L1) 'Load and unload device drivers' set 'Administrators'"
+  win_user_right:
+    name: SeLoadDriverPrivilege
+    users:
+      - Administrators
+    action: set
+  when: remediate == "YES" and execute_2_2_27 == "YES"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.27"
+  when: >
+    remediate == "YES" and
+    execute_2_2_27 == "YES"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.27"
+  when: >
+    remediate != "YES" and
+    execute_2_2_27 == "YES"
+
+
+# ==================================================================
+# 2.2.28 (L1) Ensure 'Lock pages in memory' is set to 'No One'
+# ==================================================================
+- name: "2.2.28 (L1) Ensure 'Lock pages in memory' is set to 'No One'"
+  win_user_right:
+    name: SeLockMemoryPrivilege
+    users:
+    # - remove all users from this policy
+    action: set
+  when: remediate == "YES" and execute_2_2_28 == "YES"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.28"
+  when: >
+    remediate == "YES" and
+    execute_2_2_28 == "YES"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.28"
+  when: >
+    remediate != "YES" and
+    execute_2_2_28 == "YES"
+
+
+# ==================================================================
+# 2.2.29 (L2) Ensure 'Log on as a batch job' set 'Administrators' (DC Only)
+# ==================================================================
+- name: "2.2.29 (L2) 'Log on as a batch job' set 'Administrators' (DC Only)"
+  win_user_right:
+    name: SeBatchLogonRight
+    users:
+      - Administrators
+    action: set
+  when: >
+    remediate == "YES" and
+    execute_2_2_29 == "YES" and
+    (DomainRole == "4" or DomainRole == "5")
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.29"
+  when: >
+    remediate == "YES" and
+    execute_2_2_29 == "YES" and
+    (DomainRole == "4" or DomainRole == "5")
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.29"
+  when: >
+    remediate != "YES" and
+    execute_2_2_29 == "YES" and
+    (DomainRole == "4" or DomainRole == "5")
+
+
+# ==================================================================
+# 2.2.30 (L1) 'Manage auditing and security log'
+# ==================================================================
+- name: "2.2.30 (L1) 'Manage auditing and security log' - NOT A DC"
+  win_user_right:
+    name: SeSecurityPrivilege
+    users:
+      - Administrators
+    action: set
+  when: >
+    remediate == "YES" and
+    execute_2_2_30 == "YES" and
+    DomainRole != "4" and
+    DomainRole != "5"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.30"
+  when: >
+    remediate == "YES" and
+    execute_2_2_30 == "YES" and
+    DomainRole != "4" and
+    DomainRole != "5"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.30"
+  when: >
+    remediate != "YES" and
+    execute_2_2_30 == "YES" and
+    DomainRole != "4" and
+    DomainRole != "5"
+
+# -----------------------------------------------------------------------
+
+- name: "2.2.30 (L1) 'Manage auditing and security log' - DC"
+  win_user_right:
+    name: SeSecurityPrivilege
+    users:
+      - Administrators
+    action: set
+  when: >
+    remediate == "YES" and
+    execute_2_2_30 == "YES" and
+    (DomainRole == "4" or DomainRole == "5")
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.30"
+  when: >
+    remediate == "YES" and
+    execute_2_2_30 == "YES" and
+    (DomainRole == "4" or DomainRole == "5")
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.30"
+  when: >
+    remediate != "YES" and
+    execute_2_2_30 == "YES" and
+    (DomainRole == "4" or DomainRole == "5")
+
+
+# ==================================================================
+# 2.2.31 (L1) Ensure 'Modify an object label' is set to 'No One' (Scored)
+# ==================================================================
+- name: "2.2.31 (L1) Ensure 'Modify an object label' is set to 'No One'"
+  win_user_right:
+    name: SeRelabelPrivilege
+    users:
+    # - remove all users from this policy
+    action: set
+  when: remediate == "YES" and execute_2_2_31 == "YES"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.31"
+  when: >
+    remediate == "YES" and
+    execute_2_2_31 == "YES"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.31"
+  when: >
+    remediate != "YES" and
+    execute_2_2_31 == "YES"
+
+
+# ==================================================================
+# 2.2.32 (L1) 'Modify firmware environment values' is set to 'Administrators'
+# ==================================================================
+- name: "2.2.32 (L1) 'Modify firmware environment values' set 'Administrators'"
+  win_user_right:
+    name: SeSystemEnvironmentPrivilege
+    users:
+      - Administrators
+    action: set
+  when: remediate == "YES" and execute_2_2_32 == "YES"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.32"
+  when: >
+    remediate == "YES" and
+    execute_2_2_32 == "YES"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.32"
+  when: >
+    remediate != "YES" and
+    execute_2_2_32 == "YES"
+
+
+# ==================================================================
+# 2.2.33 (L1) 'Perform volume maintenance tasks' is set to 'Administrators'
+# ==================================================================
+- name: "2.2.33 (L1) 'Perform volume maintenance tasks' set 'Administrators'"
+  win_user_right:
+    name: SeManageVolumePrivilege
+    users:
+      - Administrators
+    action: set
+  when: remediate == "YES" and execute_2_2_33 == "YES"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.33"
+  when: >
+    remediate == "YES" and
+    execute_2_2_33 == "YES"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.33"
+  when: >
+    remediate != "YES" and
+    execute_2_2_33 == "YES"
+
+
+# ==================================================================
+# 2.2.34 (L1) 'Profile single process' is set to 'Administrators'
+# ==================================================================
+- name: "2.2.34 (L1) 'Profile single process' is set to 'Administrators'"
+  win_user_right:
+    name: SeProfileSingleProcessPrivilege
+    users:
+      - Administrators
+    action: set
+  when: remediate == "YES" and execute_2_2_34 == "YES"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.34"
+  when: >
+    remediate == "YES" and
+    execute_2_2_34 == "YES"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.34"
+  when: >
+    remediate != "YES" and
+    execute_2_2_34 == "YES"
+
+
+# ==================================================================
+# 2.2.35 (L1) 'Profile system performance' set 'Admins, NT SRVC\WdiServiceHost'
+# ==================================================================
+- name: "2.2.35 (L1) 'Profile system performance' set 'Admins, NT SRVCE-Wdi...'"
+  win_user_right:
+    name: SeSystemProfilePrivilege
+    users:
+      - Administrators
+      - NT SERVICE\WdiServiceHost
+    action: set
+  when: remediate == "YES" and execute_2_2_35 == "YES"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.35"
+  when: >
+    remediate == "YES" and
+    execute_2_2_35 == "YES"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.35"
+  when: >
+    remediate != "YES" and
+    execute_2_2_35 == "YES"
+
+
+# ==================================================================
+# 2.2.36 (L1) 'Replace a process level token' set 'LOCAL SRVC, NETWORK SRVC'
+# ==================================================================
+- name: "2.2.36 (L1) 'Replace a process level token' set 'LCL SRVC, NTWRK SRVC'"
+  win_user_right:
+    name: SeAssignPrimaryTokenPrivilege
+    users:
+      - LOCAL SERVICE
+      - NETWORK SERVICE
+    action: set
+  when: remediate == "YES" and execute_2_2_36 == "YES"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.36"
+  when: >
+    remediate == "YES" and
+    execute_2_2_36 == "YES"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.36"
+  when: >
+    remediate != "YES" and
+    execute_2_2_36 == "YES"
+
+
+# ==================================================================
+# 2.2.37 (L1) 'Restore files and directories' is set to 'Administrators'
+# ==================================================================
+- name: "2.2.37 (L1) 'Restore files and directories' set 'Administrators'"
+  win_user_right:
+    name: SeRestorePrivilege
+    users:
+      - Administrators
+    action: set
+  when: remediate == "YES" and execute_2_2_37 == "YES"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.37"
+  when: >
+    remediate == "YES" and
+    execute_2_2_37 == "YES"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.37"
+  when: >
+    remediate != "YES" and
+    execute_2_2_37 == "YES"
+
+
+# ==================================================================
+# 2.2.38 (L1) Ensure 'Shut down the system' is set to 'Administrators'
+# ==================================================================
+- name: "2.2.38 (L1) Ensure 'Shut down the system' is set to 'Administrators'"
+  win_user_right:
+    name: SeShutdownPrivilege
+    users:
+      - Administrators
+    action: set
+  when: remediate == "YES" and execute_2_2_38 == "YES"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.38"
+  when: >
+    remediate == "YES" and
+    execute_2_2_38 == "YES"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.38"
+  when: >
+    remediate != "YES" and
+    execute_2_2_38 == "YES"
+
+
+# ==================================================================
+# 2.2.39 (L1) 'Synchronize directory service data' is set to 'No One' (DC only)
+# ==================================================================
+- name: "2.2.39 (L1) 'Synchronize directory service data' set 'No One'-DC only"
+  win_user_right:
+    name: SeSyncAgentPrivilege
+    users:
+    # - remove all users
+    action: set
+  when: >
+    remediate == "YES" and
+    execute_2_2_39 == "YES" and
+    (DomainRole == "4" or DomainRole == "5")
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.39"
+  when: >
+    remediate == "YES" and
+    execute_2_2_39 == "YES" and
+    (DomainRole == "4" or DomainRole == "5")
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.39"
+  when: >
+    remediate != "YES" and
+    execute_2_2_39 == "YES" and
+    (DomainRole == "4" or DomainRole == "5")
+
+
+# ==================================================================
+# 2.2.40 (L1) 'Take ownership of files or other objects' set 'Administrators'
+# ==================================================================
+- name: "2.2.40 (L1) 'Take ownership of files or other objects' set 'Admins'"
+  win_user_right:
+    name: SeTakeOwnershipPrivilege
+    users:
+      - Administrators
+    action: set
+  when: remediate == "YES" and execute_2_2_40 == "YES"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+    CIS_Number: "2.2.40"
+  when: >
+    remediate == "YES" and
+    execute_2_2_40 == "YES"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+    CIS_Number: "2.2.40"
+  when: >
+    remediate != "YES" and
+    execute_2_2_40 == "YES"
