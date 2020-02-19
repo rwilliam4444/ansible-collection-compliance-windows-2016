@@ -1,0 +1,17 @@
+---
+# defaults file for ansible-role-compliance-windows-laps-policy-2016
+
+remediate: "NO"
+approved_windows_ver: "2016"
+execute_18_2_1: "YES"
+execute_18_2_2: "YES"
+execute_18_2_3: "YES"
+execute_18_2_4: "YES"
+execute_18_2_5: "YES"
+execute_18_2_6: "YES"
+winlgn_reg: "HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\"
+MaxPwAge_cis: 30
+PasswordLength_cis: 15
+PasswordComplexity_cis: "4"
+AdmPwdEnabled_cis: "1"
+PwdEx_cis: "1"

@@ -1,0 +1,647 @@
+---
+# ============================================================================
+# tasks file for ansible-role-compliance-windows-network-policy-2016
+# ============================================================================
+#
+#
+# ==================================================================
+# collect hostname and ip address information
+# ==================================================================
+- name: collect hostname
+  win_shell: >
+    $sysinfo=Get-WmiObject -Class win32_computersystem;
+    $server="{0}.{1}" -f $sysinfo.Name, $sysinfo.domain;
+    $server
+  register: FQDN_hostname
+  ignore_errors: true
+
+- name: set output
+  set_fact:
+   FQDN_hostname: "{{ FQDN_hostname.stdout_lines | join }}"
+
+- block:
+   - debug:
+      msg:
+       - "The FQDN hostname is.....{{ FQDN_hostname }}"
+
+- name: collect ip address
+  win_shell: >
+     (Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway -ne
+     $null -and $_.netadapter.status -ne "Disconnected"}).ipv4address.ipaddress
+  register: default_ipv4_address
+  ignore_errors: true
+
+- name: set output
+  set_fact:
+   default_ipv4_address: "{{ default_ipv4_address.stdout_lines }}"
+
+- block:
+   - debug:
+      msg:
+       - "The default_ipv4_address is.....{{ default_ipv4_address }}"
+
+
+# ==================================================================
+# Get O\S information
+# ==================================================================
+- name: "Get Operating Systerm version information"
+  win_shell: (get-WMIobject win32_operatingsystem).Name
+  register: Win_os_ver_out
+  ignore_errors: true
+
+- name: "set output variable"
+  set_fact:
+   Win_os_ver_out="{{ Win_os_ver_out.stdout_lines|list|join }}"
+
+- name: "check and ensure if the windows server is a 2016 server"
+  fail:
+   msg: "This server is NOT a windows 2016 server: {{ Win_os_ver_out }}"
+  when: approved_windows_ver not in Win_os_ver_out
+
+- block:
+   - debug:
+      msg:
+       - "This server IS a windows 2016 server: {{ Win_os_ver_out }}"
+  when: approved_windows_ver in Win_os_ver_out
+#
+#
+# ==================================================================
+# Get server role information
+# ==================================================================
+- name: "Get server role information"
+  win_shell: wmic.exe Computersystem get DomainRole
+  register: DomainR_out
+  ignore_errors: true
+
+- name: "set output variable"
+  set_fact:
+   DomainR_out: "{{ DomainR_out.stdout|regex_search(regexp,'\\1')|list|join }}"
+  vars:
+   regexp: 'DomainRole\s+(\d+)'
+
+- block:
+   - debug:
+      msg:
+       - "The DomainRole is NOT a Backup DC or a DC: '{{ DomainR_out }}'."
+  when: DomainR_out != "4" and DomainR_out != "5"
+
+- block:
+   - debug:
+      msg:
+       - "The DomainRole is a Backup DC or a DC:'{{ DomainR_out }}'."
+  when: DomainR_out == "4" or DomainR_out == "5"
+
+- name: "check and ensure the server is a Memeber Server only"
+  fail:
+   msg: "This server is a domain controller.  This is for MS servers only."
+  when: DomainR_out == "4" or DomainR_out == "5"
+
+
+# =============================================================================
+# 18.4.4.1 (L1) Set 'NetBIOS node type' to 'P-node'
+# (Ensure NetBT Parameter 'NodeType' is set to '0x2 (2)') (MS Only) (Scored)
+# =============================================================================
+- name: "18.4.4.1 (L1)'NtBS type'...'P-node'(NetBT Prmtr 'NodeType'='0x2 (2)')"
+  include_tasks: win_check.yml
+  vars:
+   title: "The NodeType setting (18.4.4.1)"
+   check_against: "{{ NodeType_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\System\CurrentControlSet\Services\NetBT\Parameters" -name
+     "NodeType"|Select-Object -ExpandProperty "NodeType"
+   win_regedit_cmd:
+    path: HKLM:\System\CurrentControlSet\Services\NetBT\Parameters
+    name: "NodeType"
+    data: "2"
+    type: dword
+  when: >
+    execute_18_4_4_1 == "YES" and
+    DomainR_out != "4" and
+    DomainR_out != "5"
+
+
+# =============================================================================
+# 18.4.4.2 (L1) Ensure 'Turn off multicast name resolution'
+# is set to 'Enabled' (MS Only) (Scored)
+# =============================================================================
+- name: "18.4.4.2 (L1) 'Turn off multicast name resolution'='Enabled' (MS Only)"
+  include_tasks: win_check.yml
+  vars:
+   title: "The EnableMulticast setting (18.4.4.2)"
+   check_against: "{{ EnableMulticast_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\DNSClient" -name
+     "EnableMulticast"|Select-Object -ExpandProperty "EnableMulticast"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\DNSClient
+    name: "EnableMulticast"
+    data: "0"
+    type: dword
+  when: >
+    execute_18_4_4_2 == "YES" and
+    DomainR_out != "4" and
+    DomainR_out != "5"
+
+
+# =============================================================================
+# 18.4.5.1 (L2) Ensure 'Enable Font Providers' is set to 'Disabled' (Scored)
+# =============================================================================
+- name: "18.4.5.1 (L2) 'Enable Font Providers' is set to 'Disabled' (Scored)"
+  include_tasks: win_check.yml
+  vars:
+   title: "The EnableFontProviders setting (18.4.5.1)"
+   check_against: "{{ EnableFontProviders_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" -name
+     "EnableFontProviders"|Select-Object -ExpandProperty "EnableFontProviders"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\System
+    name: "EnableFontProviders"
+    data: "0"
+    type: dword
+  when: execute_18_4_5_1 == "YES"
+
+
+# =============================================================================
+# 18.4.8.1 (L1) Ensure 'Enable insecure guest logons' is set to 'Disabled'
+# =============================================================================
+- name: "18.4.8.1 (L1) 'Enable insecure guest logons' is set to 'Disabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The AllowInsecureGuestAuth setting (18.4.8.1)"
+   check_against: "{{ AllowInsecureGuestAuth_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Policies\Microsoft\Windows\LanmanWorkstation" -name
+     "AllowInsecureGuestAuth"|Select-Object
+     -ExpandProperty "AllowInsecureGuestAuth"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\LanmanWorkstation
+    name: "AllowInsecureGuestAuth"
+    data: "0"
+    type: dword
+  when: execute_18_4_8_1 == "YES"
+
+
+# =============================================================================
+# 18.4.9.1 (L2) Ensure 'Turn on Mapper I/O (LLTDIO) driver' is set to 'Disabled'
+# =============================================================================
+- name: "18.4.9.1 (L2) 'Turn on Mapper I/O (LLTDIO) driver' = 'Disabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The AllowLLTDIOOnDomain setting (18.4.9.1)"
+   check_against: "{{ AllowLLTDIOOnDomain_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Policies\Microsoft\Windows\LLTD" -name
+     "AllowLLTDIOOnDomain"|Select-Object -ExpandProperty "AllowLLTDIOOnDomain"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\LLTD
+    name: "AllowLLTDIOOnDomain"
+    data: "0"
+    type: dword
+  when: execute_18_4_9_1 == "YES"
+
+
+# =============================================================================
+- name: "18.4.9.1 (L2) 'Turn on Mapper I/O (LLTDIO) driver' = 'Disabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The AllowLLTDIOOnPublicNet setting (18.4.9.1)"
+   check_against: "{{ AllowLLTDIOOnPublicNet_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Policies\Microsoft\Windows\LLTD" -name
+     "AllowLLTDIOOnPublicNet"|Select-Object
+     -ExpandProperty "AllowLLTDIOOnPublicNet"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\LLTD
+    name: "AllowLLTDIOOnPublicNet"
+    data: "0"
+    type: dword
+  when: execute_18_4_9_1 == "YES"
+
+
+# =============================================================================
+- name: "18.4.9.1 (L2) 'Turn on Mapper I/O (LLTDIO) driver' = 'Disabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The EnableLLTDIO setting (18.4.9.1)"
+   check_against: "{{ EnableLLTDIO_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Policies\Microsoft\Windows\LLTD" -name
+     "EnableLLTDIO"|Select-Object -ExpandProperty "EnableLLTDIO"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\LLTD
+    name: "EnableLLTDIO"
+    data: "0"
+    type: dword
+  when: execute_18_4_9_1 == "YES"
+
+
+# ============================================================================
+- name: "18.4.9.1 (L2) 'Turn on Mapper I/O (LLTDIO) driver'='Disabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The ProhibitLLTDIOOnPrivateNet setting (18.4.9.1)"
+   check_against: "{{ ProhibitLLTDIOOnPrivateNet_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Policies\Microsoft\Windows\LLTD" -name
+     "ProhibitLLTDIOOnPrivateNet"|Select-Object
+     -ExpandProperty "ProhibitLLTDIOOnPrivateNet"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\LLTD
+    name: "ProhibitLLTDIOOnPrivateNet"
+    data: "0"
+    type: dword
+  when: execute_18_4_9_1 == "YES"
+
+
+# =============================================================================
+# 18.4.9.2 (L2) Ensure 'Turn on Responder (RSPNDR) driver' is set to 'Disabled'
+# =============================================================================
+- name: "18.4.9.2 (L2) Ensure 'Turn on Responder (RSPNDR) driver' = 'Disabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The AllowRspndrOnDomain setting (18.4.9.2)"
+   check_against: "{{ AllowRspndrOnDomain_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Policies\Microsoft\Windows\LLTD" -name
+     "AllowRspndrOnDomain"|Select-Object -ExpandProperty "AllowRspndrOnDomain"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\LLTD
+    name: "AllowRspndrOnDomain"
+    data: "0"
+    type: dword
+  when: execute_18_4_9_2 == "YES"
+
+
+# =============================================================================
+- name: "18.4.9.2 (L2) 'Turn on Responder (RSPNDR) driver' = 'Disabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The AllowRspndrOnPublicNet setting (18.4.9.2)"
+   check_against: "{{ AllowRspndrOnPublicNet_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Policies\Microsoft\Windows\LLTD" -name
+     "AllowRspndrOnPublicNet"|Select-Object
+     -ExpandProperty "AllowRspndrOnPublicNet"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\LLTD
+    name: "AllowRspndrOnPublicNet"
+    data: "0"
+    type: dword
+  when: execute_18_4_9_2 == "YES"
+
+
+# =============================================================================
+- name: "18.4.9.2 (L2) 'Turn on Responder (RSPNDR) driver' is set to 'Disabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The EnableRspndr setting (18.4.9.2)"
+   check_against: "{{ EnableRspndr_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Policies\Microsoft\Windows\LLTD" -name
+     "EnableRspndr"|Select-Object -ExpandProperty "EnableRspndr"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\LLTD
+    name: "EnableRspndr"
+    data: "0"
+    type: dword
+  when: execute_18_4_9_2 == "YES"
+
+
+# =============================================================================
+- name: "18.4.9.2 (L2) 'Turn on Responder (RSPNDR) driver' is set to 'Disabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The ProhibitRspndrOnPrivateNet setting (18.4.9.2)"
+   check_against: "{{ ProhibitRspndrOnPrivateNet_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Policies\Microsoft\Windows\LLTD" -name
+     "ProhibitRspndrOnPrivateNet"|Select-Object
+     -ExpandProperty "ProhibitRspndrOnPrivateNet"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\LLTD
+    name: "ProhibitRspndrOnPrivateNet"
+    data: "0"
+    type: dword
+  when: execute_18_4_9_2 == "YES"
+
+
+# =============================================================================
+# 18.4.10.2 (L2) Ensure 'Turn off Microsoft Peer-to-Peer Networking Services'
+# is set to 'Enabled' (Scored)
+# =============================================================================
+- name: "18.4.10.2 (L2) 'Turn off Mcrsft Peer-to-Peer Ntwrkng Srvcs'='Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The Disabled setting (18.4.10.2)"
+   check_against: "{{ Disabled_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Policies\Microsoft\Peernet" -name
+     "Disabled"|Select-Object -ExpandProperty "Disabled"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Peernet
+    name: "Disabled"
+    data: "1"
+    type: dword
+  when: execute_18_4_10_2 == "YES"
+
+
+# =============================================================================
+# 18.4.11.2 (L1) Ensure 'Prohibit installation and configuration of Network
+# Bridge on your DNS domain network' is set to 'Enabled' (Scored)
+# =============================================================================
+- name: "18.4.11.2 (L1)'Prhbt instlltn & cnfgrtn....domain network'='Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The NC_AllowNetBridge_NLA setting (18.4.11.2)"
+   check_against: "{{ NC_AllowNetBridge_NLA_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Network Connections" -name
+     "NC_AllowNetBridge_NLA"|Select-Object
+     -ExpandProperty "NC_AllowNetBridge_NLA"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\Network Connections
+    name: "NC_AllowNetBridge_NLA"
+    data: "0"
+    type: dword
+  when: execute_18_4_11_2 == "YES"
+
+
+# =============================================================================
+# 18.4.11.3 (L1) Ensure 'Prohibit use of Internet Connection Sharing on your
+# DNS domain network' is set to 'Enabled' (Scored)
+# =============================================================================
+- name: "18.4.11.3 (L1) 'Prohibit use... on your DNS domain network'='Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The NC_ShowSharedAccessUI setting (18.4.11.3)"
+   check_against: "{{ NC_ShowSharedAccessUI_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Network Connections" -name
+     "NC_ShowSharedAccessUI"|Select-Object
+     -ExpandProperty "NC_ShowSharedAccessUI"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\Network Connections
+    name: "NC_ShowSharedAccessUI"
+    data: "0"
+    type: dword
+  when: execute_18_4_11_3 == "YES"
+
+
+# =============================================================================
+# 18.4.11.4 (L1) Ensure 'Require domain users to elevate when setting a
+# network's location' is set to 'Enabled' (Scored)
+# =============================================================================
+- name: "18.4.11.4 (L1) 'Require domain users to elevate...location'='Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The NC_StdDomainUserSetLocation setting (18.4.11.4)"
+   check_against: "{{ NC_StdDomainUserSetLocation_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Network Connections" -name
+     "NC_StdDomainUserSetLocation"|Select-Object
+     -ExpandProperty "NC_StdDomainUserSetLocation"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\Network Connections
+    name: "NC_StdDomainUserSetLocation"
+    data: "1"
+    type: dword
+  when: execute_18_4_11_4 == "YES"
+
+
+# =============================================================================
+# 18.4.14.1 (L1) Ensure 'Hardened UNC Paths' is set to 'Enabled, with "Require
+# Mutual Authentication" and "Require Integrity" set for all NETLOGON and SYSVOL
+# shares'
+# =============================================================================
+- name: "18.4.14.1 (L1) 'Hardened...set for all NETLOGON and SYSVOL shares'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The Netlogon setting (18.4.14.1)"
+   check_against: "{{ Netlogon_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Policies\Microsoft\Windows\NetworkProvider\HardenedPaths"
+     -name "\\*\NETLOGON"|Select-Object -ExpandProperty "\\*\NETLOGON"
+   win_regedit_cmd:
+    path: "{{ ntwrkprv_reg }}HardenedPaths"
+    name: "\\\\*\\NETLOGON"
+    data: "RequireMutualAuthentication=1, RequireIntegrity=1"
+    type: string
+  when: execute_18_4_14_1 == "YES"
+
+
+# =============================================================================
+- name: "18.4.14.1 (L1) 'Hardened...for all NETLOGON and SYSVOL shares'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The SYSVOL setting (18.4.14.1)"
+   check_against: "{{ SYSVOL_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Policies\Microsoft\Windows\NetworkProvider\HardenedPaths"
+     -name "\\*\SYSVOL"|Select-Object -ExpandProperty "\\*\SYSVOL"
+   win_regedit_cmd:
+    path: "{{ ntwrkprv_reg }}HardenedPaths"
+    name: "\\\\*\\SYSVOL"
+    data: "RequireMutualAuthentication=1, RequireIntegrity=1"
+    type: string
+  when: execute_18_4_14_1 == "YES"
+
+
+# =============================================================================
+# 18.4.19.2 (L2) Disable IPv6 (Ensure TCPIP6 Parameter 'DisabledComponents' is
+# set to '0xff (255)') (Scored)
+# =============================================================================
+- name: "18.4.19.2 (L2) Disable......... 'DisabledComponents' = '0xff (255)')"
+  include_tasks: win_check.yml
+  vars:
+   title: "The DisabledComponents setting (18.4.19.2)"
+   check_against: "{{ DisabledComponents_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SYSTEM\CurrentControlSet\Services\TCPIP6\Parameters" -name
+     "DisabledComponents"|Select-Object -ExpandProperty "DisabledComponents"
+   win_regedit_cmd:
+    path: HKLM:\SYSTEM\CurrentControlSet\Services\TCPIP6\Parameters
+    name: "DisabledComponents"
+    data: "255"
+    type: dword
+  when: execute_18_4_19_2 == "YES"
+
+
+# =============================================================================
+# 18.4.20.1 (L2) Ensure 'Configuration of wireless settings using Windows
+# Connect Now' is set to 'Disabled' (Scored)
+# +============================================================================
+- name: "18.4.20.1 (L2)'Cnfig of wrlss sttngs using Wndws Cnnct Now'='Disabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The EnableRegistrars setting (18.4.20.1)"
+   check_against: "{{ EnableRegistrars_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WCN\Registrars" -name
+     "EnableRegistrars"|Select-Object -ExpandProperty "EnableRegistrars"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\WCN\Registrars
+    name: "EnableRegistrars"
+    data: "0"
+    type: dword
+  when: execute_18_4_20_1 == "YES"
+
+
+# ============================================================================
+- name: "18.4.20.1 (L2)'Cnfig of wrlss sttngs using Wndws Cnnct Now'='Disabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The DisableUPnPRegistrar setting (18.4.20.1)"
+   check_against: "{{ DisableUPnPRegistrar_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WCN\Registrars" -name
+     "DisableUPnPRegistrar"|Select-Object -ExpandProperty "DisableUPnPRegistrar"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\WCN\Registrars
+    name: "DisableUPnPRegistrar"
+    data: "0"
+    type: dword
+  when: execute_18_4_20_1 == "YES"
+
+
+# =============================================================================
+- name: "18.4.20.1 (L2)'Cnfig of wrlss sttngs using Wndws Cnnct Now'='Disabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The DisableInBand802DOT11Rgstrr setting (18.4.20.1)"
+   check_against: "{{ DisableInBand802DOT11Registrar_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WCN\Registrars" -name
+     "DisableInBand802DOT11Registrar"|Select-Object
+     -ExpandProperty "DisableInBand802DOT11Registrar"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\WCN\Registrars
+    name: "DisableInBand802DOT11Registrar"
+    data: "0"
+    type: dword
+  when: execute_18_4_20_1 == "YES"
+
+
+# =============================================================================
+- name: "18.4.20.1 (L2)'Cnfig of wrlss sttngs using Wndws Cnnct Now'='Disabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The DisableFlashConfigRegistrar setting (18.4.20.1)"
+   check_against: "{{ DisableFlashConfigRegistrar_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WCN\Registrars" -name
+     "DisableFlashConfigRegistrar"|Select-Object
+     -ExpandProperty "DisableFlashConfigRegistrar"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\WCN\Registrars
+    name: "DisableFlashConfigRegistrar"
+    data: "0"
+    type: dword
+  when: execute_18_4_20_1 == "YES"
+
+
+# =============================================================================
+- name: "18.4.20.1 (L2)'Cnfig of wrlss sttngs using Wndws Cnnct Now'='Disabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The DisableWPDRegistrar setting (18.4.20.1)"
+   check_against: "{{ DisableWPDRegistrar_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WCN\Registrars" -name
+     "DisableWPDRegistrar"|Select-Object -ExpandProperty "DisableWPDRegistrar"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\WCN\Registrars
+    name: "DisableWPDRegistrar"
+    data: "0"
+    type: dword
+  when: execute_18_4_20_1 == "YES"
+
+
+# =============================================================================
+# 18.4.20.2 (L2) Ensure 'Prohibit access of the Windows Connect Now wizards' is
+# set to 'Enabled' (Scored)
+# =============================================================================
+- name: "18.4.20.2 (L2) 'Prhbt accss of the Wndws Cnnct Now wizards'='Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The DisableWcnUi setting (18.4.20.2)"
+   check_against: "{{ DisableWcnUi_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WCN\UI" -name
+     "DisableWcnUi"|Select-Object -ExpandProperty "DisableWcnUi"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\WCN\UI
+    name: "DisableWcnUi"
+    data: "1"
+    type: dword
+  when: execute_18_4_20_2 == "YES"
+
+
+# =============================================================================
+# 18.4.21.1 (L1) Ensure 'Minimize the number of simultaneous connections to the
+# Internet or a Windows Domain' is set to 'Enabled' (Scored)
+# =============================================================================
+- name: "18.4.21.1 (L1)'Min the # of smltns cnnctns..... Wndws Dmn'='Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The fMinimizeConnections setting (18.4.21.1)"
+   check_against: "{{ fMinimizeConnections_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WcmSvc\GroupPolicy" -name
+     "fMinimizeConnections"|Select-Object -ExpandProperty "fMinimizeConnections"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\WcmSvc\GroupPolicy
+    name: "fMinimizeConnections"
+    data: "1"
+    type: dword
+  when: execute_18_4_21_1 == "YES"
+
+
+# =============================================================================
+# 18.4.21.2 (L2) Ensure 'Prohibit connection to non-domain networks when
+# connected to domain authenticated network' is set to 'Enabled' (MS only)
+# =============================================================================
+- name: "18.4.21.2 (L2) 'Prhbt cnnctn to...dmn auth ntwrk'='Enabled' (MS only)"
+  include_tasks: win_check.yml
+  vars:
+   title: "The fBlockNonDomain setting (18.4.21.2)"
+   check_against: "{{ fBlockNonDomain_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WcmSvc\GroupPolicy" -name
+     "fBlockNonDomain"|Select-Object -ExpandProperty "fBlockNonDomain"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\WcmSvc\GroupPolicy
+    name: "fBlockNonDomain"
+    data: "1"
+    type: dword
+  when: >
+    execute_18_4_21_2 == "YES" and
+    DomainR_out != "4" and
+    DomainR_out != "5"

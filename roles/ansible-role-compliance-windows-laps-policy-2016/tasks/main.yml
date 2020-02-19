@@ -1,0 +1,302 @@
+---
+# ================================================================
+# tasks file for ansible-role-compliance-windows-laps-policy-2016
+# ================================================================
+#
+#
+# ==================================================================
+# collect hostname and ip address information
+# ==================================================================
+- name: collect hostname
+  win_shell: >
+    $sysinfo=Get-WmiObject -Class win32_computersystem;
+    $server="{0}.{1}" -f $sysinfo.Name, $sysinfo.domain;
+    $server
+  register: FQDN_hostname
+  ignore_errors: true
+
+- name: set output
+  set_fact:
+    FQDN_hostname: "{{ FQDN_hostname.stdout_lines | join }}"
+
+- block:
+    - debug:
+        msg:
+          - "The FQDN hostname is.....{{ FQDN_hostname }}"
+
+
+- name: collect ip address
+  win_shell: >
+     (Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway -ne
+     $null -and $_.netadapter.status -ne "Disconnected"}).ipv4address.ipaddress
+  register: default_ipv4_address
+  ignore_errors: true
+
+- name: set output
+  set_fact:
+    default_ipv4_address: "{{ default_ipv4_address.stdout_lines }}"
+
+- block:
+    - debug:
+        msg:
+          - "The default_ipv4_address is.....{{ default_ipv4_address }}"
+
+
+# ==================================================================
+# Get O\S information
+# ==================================================================
+- name: "Get Operating Systerm version information"
+  win_shell: (get-WMIobject win32_operatingsystem).Name
+  register: Win_os_ver_out
+  ignore_errors: true
+
+- name: "set output variable"
+  set_fact:
+    Win_os_ver_out="{{ Win_os_ver_out.stdout_lines|list|join }}"
+
+- name: "check and ensure if the windows server is a 2016 server"
+  fail:
+    msg: "This server is NOT a windows 2016 server: {{ Win_os_ver_out }}"
+  when: approved_windows_ver not in Win_os_ver_out
+
+- block:
+    - debug:
+        msg: "This server IS a windows 2016 server: {{ Win_os_ver_out }}"
+  when: approved_windows_ver in Win_os_ver_out
+#
+#
+# ==================================================================
+# Get server role information
+# ==================================================================
+- name: "Get server role information"
+  win_shell: wmic.exe Computersystem get DomainRole
+  register: DomainR_out
+  ignore_errors: true
+
+- name: "set output variable"
+  set_fact:
+    DomainR_out: "{{ DomainR_out.stdout|regex_search(regexp,'\\1')|list|join }}"
+  vars:
+    regexp: 'DomainRole\s+(\d+)'
+
+- block:
+    - debug:
+        msg:
+          - "The DomainRole is NOT a Backup DC or a DC: '{{ DomainR_out }}'."
+  when: DomainR_out != "4" and DomainR_out != "5"
+
+- block:
+    - debug:
+        msg:
+          - "The DomainRole is a Backup DC or a DC:'{{ DomainR_out }}'."
+  when: DomainR_out == "4" or DomainR_out == "5"
+
+- name: "check and ensure the server is a Memeber Server only"
+  fail:
+    msg: "This server is a domain controller.  This is for MS servers only."
+  when: DomainR_out == "4" or DomainR_out == "5"
+
+
+# =============================================================================
+# 18.2.1 (L1) Ensure LAPS AdmPwd GPO Extension / CSE is installed (MS only)
+# =============================================================================
+- name: "18.2.1 (L1) Ensure LAPS AdmPwd GPO Extension/CSE is installed-MS only"
+  win_shell: >
+    $dll="c:\program files\LAPS\CSE\admpwd.dll";
+    $exists=Test-path $dll;If ($exists -eq $True)
+    {write-host "FILE EXISTS"} Else {write-host "NO FILE"}
+  register: dll_exist_out
+  ignore_errors: true
+
+- name: "set output variable"
+  set_fact:
+    dll_exist_out="{{ dll_exist_out.stdout_lines|list|join }}"
+
+- block:
+    - debug:
+        msg:
+          - "The FQDN hostname is.............{{ FQDN_hostname }}"
+          - "The default_ipv4_address is......{{ default_ipv4_address }}"
+          - ""
+          - "The admpwd.dll file does NOT exist."
+          - "Thus LAPS is NOT installed-no registy setting needs to be checked."
+          - " (18.2.1) Test results:"
+          - "{{ dll_exist_out }}"
+  when: dll_exist_out == "NO FILE"
+
+- block:
+    - debug:
+        msg:
+          - "The FQDN hostname is.............{{ FQDN_hostname }}"
+          - "The default_ipv4_address is......{{ default_ipv4_address }}"
+          - ""
+          - "The admpwd.dll file does exist."
+          - "Thus LAPS is installed"
+          - "The registry setting needs to be checked - (18.2.1)."
+  when: dll_exist_out == "FILE EXISTS"
+
+- name: "18.2.1 (L1) If the admpwd.dll file exists, validate registry entry."
+  win_regedit:
+    path: "{{ winlgn_reg }}GPExtensions\\{D76B9641-3288-4f75-942D-087DE603E3EA}"
+    name: "DllName"
+    data: "C:\\Program File\\LAPS\\CSE\\AdmPwd.dll"
+    type: string
+  when: >
+    remediate == "YES" and execute_18_2_1 == "YES" and
+    dll_exist_out == "FILE EXISTS"
+
+# ****************************************************************************
+
+- name: "18.2.1 (L1)-Execute when remediate='YES' & setting is NON-Compliant."
+  win_shell: >
+    $dll="c:\program files\LAPS\CSE\admpwd.dll";$exists=Test-path $dll;
+    If ($exists -eq $True)
+    {write-host "FILE EXISTS"} Else {write-host "NO FILE"}
+  register: dll_exist_after_out
+  ignore_errors: true
+  when: >
+    remediate == "YES" and execute_18_2_1 == "YES" and
+    dll_exist_out == "FILE EXISTS"
+
+- name: "set output variable"
+  set_fact:
+    dll_exist_after_out2="{{ dll_exist_after_out.stdout_lines|list|join }}"
+  when: dll_exist_after_out is not skipped
+
+- block:
+    - debug:
+        msg:
+          - "The FQDN hostname is.............{{ FQDN_hostname }}"
+          - "The default_ipv4_address is......{{ default_ipv4_address }}"
+          - ""
+          - "The admpwd.dll file does NOT exist."
+          - "Thus LAPS is NOT installed-no registy setting needs to be checked."
+          - "(18.2.1) Test results:"
+          - "{{ dll_exist_out }}"
+  when: dll_exist_after_out.changed and dll_exist_after_out2 == "NO FILE"
+
+- block:
+    - debug:
+        msg:
+          - "The FQDN hostname is.............{{ FQDN_hostname }}"
+          - "The default_ipv4_address is......{{ default_ipv4_address }}"
+          - ""
+          - "The admpwd.dll file does exist."
+          - "Thus LAPS is installed"
+          - "The registry setting needs to be checked - (18.2.1)."
+  when: dll_exist_after_out.changed and dll_exist_after_out2 == "FILE EXISTS"
+
+
+# ============================================================================
+# 18.2.2 (L1) Ensure 'Do not allow password expiration time longer than....
+# ============================================================================
+- name: "18.2.2 (L1) Ensure 'Do not allow password expiration time longer....."
+  include_tasks: win_check.yml
+  vars:
+    title: "The PwdExpirationProtectionEnabled setting (18.2.2)"
+    check_against: "{{ PwdEx_cis }}"
+    win_shell_cmd: >
+      GP -path
+      "HKLM:\Software\Policies\Microsoft Services\AdmPwd" -name
+      "PwdExpirationProtectionEnabled"|Select-Object
+      -ExpandProperty "PwdExpiration*"
+    win_regedit_cmd:
+      path: HKLM:\Software\Policies\Microsoft Services\AdmPwd
+      name: "PwdExpirationProtectionEnabled"
+      data: "1"
+      type: dword
+  when: >
+    execute_18_2_2 == "YES" and
+    DomainR_out != "4" and
+    DomainR_out != "5"
+
+
+# =============================================================================
+# 18.2.3 (L1) Ensure 'Enable Local Admin Password Management' is set to.....
+# =============================================================================
+- name: "18.2.3 (L1) Ensure 'Enable Local Admin Password Management' is set..."
+  include_tasks: win_check.yml
+  vars:
+    title: "The AdmPwdEnabled setting (18.2.3)"
+    check_against: "{{ AdmPwdEnabled_cis }}"
+    win_shell_cmd: >
+      Get-ItemProperty -path "HKLM:\Software\Policies\Microsoft Services\AdmPwd"
+      -name "AdmPwdEnabled"|Select-Object -ExpandProperty "AdmPwdEnabled"
+    win_regedit_cmd:
+      path: HKLM:\Software\Policies\Microsoft Services\AdmPwd
+      name: "AdmPwdEnabled"
+      data: "1"
+      type: dword
+  when: >
+    execute_18_2_3 == "YES"
+    DomainR_out != "4" and
+    DomainR_out != "5"
+
+
+# =============================================================================
+# 18.2.4 (L1) Ensure 'Password Settings: Password Complexity' is set to.....
+# =============================================================================
+- name: "18.2.4 (L1) Ensure 'Password Settings: Password Complexity' is set..."
+  include_tasks: win_check.yml
+  vars:
+    title: "The PasswordComplexity setting (18.2.4)"
+    check_against: "{{ PasswordComplexity_cis }}"
+    win_shell_cmd: >
+      GP -path
+      "HKLM:\Software\Policies\Microsoft Services\AdmPwd" -name
+      "PasswordComplexity"|Select-Object -ExpandProperty "PasswordComplexity"
+    win_regedit_cmd:
+      path: HKLM:\Software\Policies\Microsoft Services\AdmPwd
+      name: "PasswordComplexity"
+      data: "4"
+      type: dword
+  when: >
+    execute_18_2_4 == "YES"
+    DomainR_out != "4" and
+    DomainR_out != "5"
+
+
+# =============================================================================
+# 18.2.5 (L1) Ensure 'Password Settings: Password Length' is set to.....
+# =============================================================================
+- name: "18.2.5 (L1) Ensure 'Password Settings: Password Length' is set to..."
+  include_tasks: win_check_greater_than_equal_to.yml
+  vars:
+    title: "The PasswordLength setting (18.2.5)"
+    check_against: "{{ PasswordLength_cis }}"
+    win_shell_cmd: >
+      Get-ItemProperty -path
+      "HKLM:\SOFTWARE\Policies\Microsoft Services\AdmPwd"
+      -name "PasswordLength"|Select-Object -ExpandProperty "PasswordLength"
+    win_regedit_cmd:
+      path: HKLM:\SOFTWARE\Policies\Microsoft Services\AdmPwd
+      name: "PasswordLength"
+      data: "15"
+      type: dword
+  when: >
+    execute_18_2_5 == "YES"
+    DomainR_out != "4" and
+    DomainR_out != "5"
+
+
+# ============================================================================
+# 18.2.6 (L1) Ensure 'Password Settings: Password Age (Days)' is set to...
+# ============================================================================
+- name: "18.2.6 (L1) Ensure 'Password Settings: Password Age (Days)' is set...."
+  include_tasks: win_check_less_than_equal_to_but_not_zero.yml
+  vars:
+    title: "The MaximumPasswordAge setting (18.2.6)"
+    check_against: "{{ MaxPwAge_cis }}"
+    win_shell_cmd: >
+      GP -path "HKLM:\System\CurrentControlSet\Services\Netlogon\Parameters"
+      -name "MaximumPasswordAge"|Select-Object
+      -ExpandProperty "MaximumPasswordAge"
+    win_regedit_cmd:
+      path: HKLM:\System\CurrentControlSet\Services\Netlogon\Parameters
+      name: "MaximumPasswordAge"
+      data: "30"
+      type: dword
+  when: >
+    execute_18_2_6 == "YES"
+    DomainR_out != "4" and
+    DomainR_out != "5"

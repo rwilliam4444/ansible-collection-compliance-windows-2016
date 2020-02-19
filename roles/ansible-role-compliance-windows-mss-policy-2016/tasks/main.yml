@@ -1,0 +1,313 @@
+---
+# =============================================================================
+# tasks file for ansible-role-compliance-windows-mss-policy-2016
+# =============================================================================
+#
+#
+# ==================================================================
+# collect hostname and ip address information
+# ==================================================================
+- name: collect hostname
+  win_shell: >
+    $sysinfo=Get-WmiObject -Class win32_computersystem;
+    $server="{0}.{1}" -f $sysinfo.Name, $sysinfo.domain;
+    $server
+  register: FQDN_hostname
+  ignore_errors: true
+
+- name: set output
+  set_fact:
+    FQDN_hostname: "{{ FQDN_hostname.stdout_lines | join }}"
+
+- block:
+    - debug:
+        msg:
+          - "The FQDN hostname is.....{{ FQDN_hostname }}"
+
+- name: collect ip address
+  win_shell: >
+     (Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway -ne
+     $null -and $_.netadapter.status -ne "Disconnected"}).ipv4address.ipaddress
+  register: default_ipv4_address
+  ignore_errors: true
+
+- name: set output
+  set_fact:
+    default_ipv4_address: "{{ default_ipv4_address.stdout_lines }}"
+
+- block:
+    - debug:
+        msg:
+          - "The default_ipv4_address is.....{{ default_ipv4_address }}"
+
+
+# ==================================================================
+# Get O\S information
+# ==================================================================
+- name: "Get Operating Systerm version information"
+  win_shell: (get-WMIobject win32_operatingsystem).Name
+  register: Win_os_ver_out
+  ignore_errors: true
+
+- name: "set output variable"
+  set_fact:
+    Win_os_ver_out="{{ Win_os_ver_out.stdout_lines|list|join }}"
+
+- name: "check Operating System version and ensure its 2016"
+  fail:
+    msg: "This server is NOT a windows 2016 server: {{ Win_os_ver_out }}"
+  when: approved_windows_ver not in Win_os_ver_out
+
+- block:
+    - debug:
+        msg:
+          - "This server IS a windows 2016 server: {{ Win_os_ver_out }}"
+  when: approved_windows_ver in Win_os_ver_out
+
+
+# =============================================================================
+# 18.3.1 (L1) Ensure 'MSS: (AutoAdminLogon) Enable Automatic Logon (not reco...'
+# =============================================================================
+- name: "18.3.1 (L1) 'MSS: (AutoAdminLogon) Enable Automatic Logon (not...'"
+  include_tasks: win_check.yml
+  vars:
+    title: "The AutoAdminLogon setting (18.3.1)"
+    check_against: "{{ AutoAdminLogon_cis }}"
+    win_shell_cmd: >
+      Get-ItemProperty -path
+      "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
+      -name "AutoAdminLogon"|Select-Object -ExpandProperty "AutoAdminLogon"
+    win_regedit_cmd:
+      path: HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon
+      name: "AutoAdminLogon"
+      data: "0"
+      type: string
+  when: execute_18_3_1 == "YES"
+
+
+# =============================================================================
+# 18.3.2 (L1) Ensure MSS: (DisableIPSourceRouting IPv6) IP source routing....
+# =============================================================================
+- name: "18.3.2 (L1) Ensure MSS: (DisableIPSourceRouting IPv6) IP source rou..."
+  include_tasks: win_check.yml
+  vars:
+    title: "The DisableIPSourceRouting setting (18.3.2)"
+    check_against: "{{ DisableIPSourceRouting_cis }}"
+    win_shell_cmd: >
+      Get-ItemProperty -path
+      "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip6\Parameters"
+      -name "DisableIPSourceRouting"|Select-Object
+      -ExpandProperty "DisableIPSourceRouting"
+    win_regedit_cmd:
+      path: HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip6\Parameters
+      name: "DisableIPSourceRouting"
+      data: "2"
+      type: dword
+  when: execute_18_3_2 == "YES"
+
+
+# =============================================================================
+# 18.3.3 (L1) Ensure MSS: (DisableIPSourceRouting) IP source routing protect...
+# =============================================================================
+- name: "18.3.3 (L1) Ensure MSS: (DisableIPSourceRouting) IP source routing..."
+  include_tasks: win_check.yml
+  vars:
+    title: "The DisableIPSourceRouting setting (18.3.3)"
+    check_against: "{{ DisableIPSourceRouting2_cis }}"
+    win_shell_cmd: >
+      Get-ItemProperty -path
+      "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters"
+      -name "DisableIPSourceRouting"|Select-Object
+      -ExpandProperty "DisableIPSourceRouting"
+    win_regedit_cmd:
+      path: HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters
+      name: "DisableIPSourceRouting"
+      data: "2"
+      type: dword
+  when: execute_18_3_3 == "YES"
+
+
+# =============================================================================
+# 18.3.4 (L1) Ensure MSS: (EnableICMPRedirect) Allow ICMP redirects to over...
+# =============================================================================
+- name: "18.3.4 (L1) Ensure MSS: (EnableICMPRedirect) Allow ICMP redirects..."
+  include_tasks: win_check.yml
+  vars:
+    title: "The EnableICMPRedirect setting (18.3.4)"
+    check_against: "{{ EnableICMPRedirect_cis }}"
+    win_shell_cmd: >
+      Get-ItemProperty -path
+      "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -name
+      "EnableICMPRedirect"|Select-Object -ExpandProperty "EnableICMPRedirect"
+    win_regedit_cmd:
+      path: HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters
+      name: "EnableICMPRedirect"
+      data: "0"
+      type: dword
+  when: execute_18_3_4 == "YES"
+
+
+# =============================================================================
+# 18.3.5 (L2) Ensure 'MSS: (KeepAliveTime) How often keep-alive packets...
+# =============================================================================
+- name: "18.3.5 (L2) Ensure MSS: (KeepAliveTime) How often keep-alive packets"
+  include_tasks: win_check_less_than_equal_to.yml
+  vars:
+    title: "The KeepAliveTime setting (18.3.5)"
+    check_against: "{{ KeepAliveTime_cis }}"
+    win_shell_cmd: >
+      Get-ItemProperty -path
+      "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters"
+      -name "KeepAliveTime"|Select-Object -ExpandProperty "KeepAliveTime"
+    win_regedit_cmd:
+      path: HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters
+      name: "KeepAliveTime"
+      data: "300000"
+      type: dword
+  when: execute_18_3_5 == "YES"
+
+
+# =============================================================================
+# 18.3.6 (L1) Ensure 'MSS: (NoNameReleaseOnDemand) Allow the computer to...
+# =============================================================================
+- name: "18.3.6 (L1) Ensure MSS: (NoNameReleaseOnDemand) Allow the computer..."
+  include_tasks: win_check.yml
+  vars:
+    title: "The NoNameReleaseOnDemand setting (18.3.6)"
+    check_against: "{{ NoNameReleaseOnDemand_cis }}"
+    win_shell_cmd: >
+      Get-ItemProperty -path
+      "HKLM:\SYSTEM\CurrentControlSet\Services\NetBT\Parameters" -name
+      "NoNameReleaseOnDemand"|Select-Object
+      -ExpandProperty "NoNameReleaseOnDemand"
+    win_regedit_cmd:
+      path: HKLM:\SYSTEM\CurrentControlSet\Services\NetBT\Parameters
+      name: "NoNameReleaseOnDemand"
+      data: "1"
+      type: dword
+  when: execute_18_3_6 == "YES"
+
+
+# =============================================================================
+# 18.3.7 (L2) Ensure MSS: (PerformRouterDiscovery) Allow IRDP to detect and....
+# =============================================================================
+- name: "18.3.7 (L2) Ensure MSS: (PerformRouterDiscovery) Allow IRDP to..."
+  include_tasks: win_check.yml
+  vars:
+    title: "The PerformRouterDiscovery setting (18.3.7)"
+    check_against: "{{ PerformRouterDiscovery_cis }}"
+    win_shell_cmd: >
+      Get-ItemProperty -path
+      "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters"
+      -name "PerformRouterDiscovery"|Select-Object
+      -ExpandProperty "PerformRouterDiscovery"
+    win_regedit_cmd:
+      path: HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters
+      name: "PerformRouterDiscovery"
+      data: "0"
+      type: dword
+  when: execute_18_3_7 == "YES"
+
+
+# =============================================================================
+# 18.3.8 (L1) Ensure MSS: (SafeDllSearchMode) Enable Safe DLL search mode...
+# =============================================================================
+- name: "18.3.8 (L1) Ensure MSS: (SafeDllSearchMode) Enable Safe DLL search..."
+  include_tasks: win_check.yml
+  vars:
+    title: "The SafeDllSearchMode setting (18.3.8)"
+    check_against: "{{ SafeDllSearchMode_cis }}"
+    win_shell_cmd: >
+      Get-ItemProperty -path
+      "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager"
+      -name "SafeDllSearchMode"|Select-Object
+      -ExpandProperty "SafeDllSearchMode"
+    win_regedit_cmd:
+      path: HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager
+      name: "SafeDllSearchMode"
+      data: "1"
+      type: dword
+  when: execute_18_3_8 == "YES"
+
+
+# =============================================================================
+# 18.3.9 (L1) Ensure MSS: (ScreenSaverGracePeriod) The time in seconds....
+# =============================================================================
+- name: "18.3.9 (L1) Ensure MSS: (ScreenSaverGracePeriod) The time in..."
+  include_tasks: win_check_less_than_equal_to.yml
+  vars:
+    title: "The ScreenSaverGracePeriod setting (18.3.9)"
+    check_against: "{{ ScreenSaverGracePeriod_cis }}"
+    win_shell_cmd: >
+      Get-ItemProperty -path
+      "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" -name
+      "ScreenSaverGracePeriod"|Select-Object
+      -ExpandProperty "ScreenSaverGracePeriod"
+    win_regedit_cmd:
+      path: HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon
+      name: "ScreenSaverGracePeriod"
+      data: "0"
+      type: string
+  when: execute_18_3_9 == "YES"
+
+
+# =============================================================================
+# 18.3.10 (L2) Ensure MSS: (TcpMaxDataRetransmissions IPv6) How many times...
+# =============================================================================
+- name: "18.3.10 (L2) Ensure MSS: (TcpMaxDataRetransmissions IPv6) How many..."
+  include_tasks: win_check_less_than_equal_to.yml
+  vars:
+    title: "The TcpMaxDataRetransmissions setting (18.3.10)"
+    check_against: "{{ TcpMaxDataRetransmissions_cis }}"
+    win_shell_cmd: >
+      Get-ItemProperty -path
+      "HKLM:\SYSTEM\CurrentControlSet\Services\TCPIP6\Parameters" -name
+      "TcpMaxDataRetransmissions"|Select-Object
+      -ExpandProperty "TcpMaxDataRetransmissions"
+    win_regedit_cmd:
+      path: HKLM:\SYSTEM\CurrentControlSet\Services\TCPIP6\Parameters
+      name: "TcpMaxDataRetransmissions"
+      data: "3"
+      type: dword
+  when: execute_18_3_10 == "YES"
+
+
+# =============================================================================
+# 18.3.11 (L2) Ensure MSS: (TcpMaxDataRetransmissions) How many times...
+# =============================================================================
+- name: "18.3.11 (L2) Ensure MSS: (TcpMaxDataRetransmissions) How many..."
+  include_tasks: win_check_less_than_equal_to.yml
+  vars:
+    title: "The TcpMaxDataRetransmissions setting (18.3.11)"
+    check_against: "{{ TcpMaxDataRetransmissions2_cis }}"
+    win_shell_cmd: >
+      Get-ItemProperty -path
+      "HKLM:\SYSTEM\CurrentControlSet\Services\TCPIP\Parameters" -name
+      "TcpMaxDataRetransmissions"|Select-Object
+      -ExpandProperty "TcpMaxDataRetransmissions"
+    win_regedit_cmd:
+      path: HKLM:\SYSTEM\CurrentControlSet\Services\TCPIP\Parameters
+      name: "TcpMaxDataRetransmissions"
+      data: "3"
+      type: dword
+  when: execute_18_3_11 == "YES"
+
+
+# =============================================================================
+# 18.3.12 (L1) Ensure MSS: (WarningLevel) Percentage threshold for the...
+# =============================================================================
+- name: "18.3.12 (L1) Ensure MSS: (WarningLevel) Percentage threshold..."
+  include_tasks: win_check_less_than_equal_to.yml
+  vars:
+    title: "The WarningLevel setting (18.3.12)"
+    check_against: "{{ WarningLevel_cis }}"
+    win_shell_cmd: >
+      Get-ItemProperty -path
+      "HKLM:\SYSTEM\CurrentControlSet\Services\Eventlog\Security" -name
+      "WarningLevel"|Select-Object -ExpandProperty "WarningLevel"
+    win_regedit_cmd:
+      path: HKLM:\SYSTEM\CurrentControlSet\Services\Eventlog\Security
+      name: "WarningLevel"
+      data: "90"
+      type: dword
+  when: execute_18_3_12 == "YES"

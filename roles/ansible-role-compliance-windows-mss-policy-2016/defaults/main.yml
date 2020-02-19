@@ -1,0 +1,28 @@
+---
+# defaults file for ansible-role-compliance-windows-mss-policy-2016
+remediate: "NO"
+approved_windows_ver: "2016"
+execute_18_3_1: "YES"
+execute_18_3_2: "YES"
+execute_18_3_3: "YES"
+execute_18_3_4: "YES"
+execute_18_3_5: "YES"
+execute_18_3_6: "YES"
+execute_18_3_7: "YES"
+execute_18_3_8: "YES"
+execute_18_3_9: "YES"
+execute_18_3_10: "YES"
+execute_18_3_11: "YES"
+execute_18_3_12: "YES"
+AutoAdminLogon_cis: "0"
+DisableIPSourceRouting_cis: "2"
+DisableIPSourceRouting2_cis: "2"
+EnableICMPRedirect_cis: "0"
+KeepAliveTime_cis: 300000
+NoNameReleaseOnDemand_cis: "1"
+PerformRouterDiscovery_cis: "0"
+SafeDllSearchMode_cis: "1"
+ScreenSaverGracePeriod_cis: 5
+TcpMaxDataRetransmissions_cis: 3
+TcpMaxDataRetransmissions2_cis: 3
+WarningLevel_cis: 90
