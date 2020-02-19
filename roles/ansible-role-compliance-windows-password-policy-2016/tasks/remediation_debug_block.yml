@@ -1,0 +1,11 @@
+---
+- block:
+  - debug:
+     msg:
+     - "The FQDN hostname is.............{{ FQDN_hostname }}"
+     - "The default_ipv4_address is......{{ default_ipv4_address }}"
+     - ""
+     - "The Remediation command was executed in order to ensure that"
+     - "the following CIS setting is compliant......{{ CIS_Number }}"
+     - ""
+     - "However, we are unable to validate this setting via automation."

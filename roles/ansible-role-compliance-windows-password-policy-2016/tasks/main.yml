@@ -1,0 +1,583 @@
+---
+# ===================================================================
+# tasks file for ansible-role-compliance-windows-password-policy-2016
+# ===================================================================
+#
+#
+# ==================================================================
+# collect hostname and ip address information
+# ==================================================================
+- name: collect hostname
+  win_shell: >
+    $sysinfo=Get-WmiObject -Class win32_computersystem;
+    $server="{0}.{1}" -f $sysinfo.Name, $sysinfo.domain;
+    $server
+  register: FQDN_hostname
+  ignore_errors: true
+
+- name: set output
+  set_fact:
+   FQDN_hostname: "{{ FQDN_hostname.stdout_lines | join }}"
+
+- block:
+   - debug:
+      msg:
+       - "The FQDN hostname is.....{{ FQDN_hostname }}"
+
+- name: collect ip address
+  win_shell: >
+     (Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway -ne
+     $null -and $_.netadapter.status -ne "Disconnected"}).ipv4address.ipaddress
+  register: default_ipv4_address
+  ignore_errors: true
+
+- name: set output
+  set_fact:
+   default_ipv4_address: "{{ default_ipv4_address.stdout_lines }}"
+
+- block:
+   - debug:
+      msg:
+       - "The default_ipv4_address is.....{{ default_ipv4_address }}"
+
+
+# ==================================================================
+# Get O\S information
+# ==================================================================
+- name: "Get Operating Systerm version information"
+  win_shell: (get-WMIobject win32_operatingsystem).Name
+  register: Win_os_ver_out
+  ignore_errors: true
+
+- name: "set output variable"
+  set_fact:
+   Win_os_ver_out="{{ Win_os_ver_out.stdout_lines|list|join }}"
+
+- name: "check and ensure if the windows server is a 2016 server"
+  fail:
+   msg: "This server is NOT a windows 2016 server: {{ Win_os_ver_out }}"
+  when: approved_windows_ver not in Win_os_ver_out
+
+- block:
+   - debug:
+      msg:
+       - "This server IS a windows 2016 server: {{ Win_os_ver_out }}"
+  when: approved_windows_ver in Win_os_ver_out
+#
+#
+# ===================================================================
+# Get the password policy information from the net accounts command:
+# ===================================================================
+- name: execute net accounts output and parse the lines
+  win_shell: net accounts
+  register: nao
+
+
+# ===================================================================
+# Get the value for Forcing user to logoff after a set time expires:
+# ===================================================================
+- name: "set output variable"
+  set_fact:
+   LgffTmE: "{{ nao.stdout_lines[0] | regex_search(regexp,'\\1')|list|join }}"
+  vars:
+   regexp: '.*:\s+(\w+)'
+
+
+# ===================================================================
+# 1.1.1 (L1) Get the value for Length of password history maintained:
+# ===================================================================
+- name: "set output variable"
+  set_fact:
+   LPH: "{{ nao.stdout_lines[4]|regex_search(regexp,'\\1')|list|join }}"
+  vars:
+   regexp: '.*:\s+(\w+)'
+
+- name: Setup Output - debug_block_greater_than_equal_to.yml
+  include_tasks: debug_block_greater_than_equal_to.yml
+  vars:
+   msg_string: "The Length of Password History setting (1.1.1)"
+   check_value: "{{ LPH }}"
+   check_against: "{{ lngth_pw_history_cis }}"
+  when: >
+    execute_1_1_1 == "YES"
+
+
+- name: check if the password age is compliant and if not, resolve it
+  win_shell: net accounts /UNIQUEPW:{{ lngth_pw_history_cis }}
+  when: >
+    remediate == "YES" and execute_1_1_1 == "YES" and
+    LPH|int < lngth_pw_history_cis
+
+- name: execute net accounts cmd -AFTER REMEDIATION ONLY WHEN REMEDIATE == 'YES'
+  win_shell: net accounts
+  register: na_ao1
+  when: >
+    remediate == "YES" and
+    execute_1_1_1 == "YES" and
+    LPH|int < lngth_pw_history_cis
+
+
+# ===================================================================
+# 1.1.1 (L1) Get the value for Length of password history maintained
+# AFTER REMEDIATION ONLY WHEN REMEDAITE == 'YES' and the value is Non
+# compliant.
+# ===================================================================
+- name: "set output variable - AFTER REMEDIATION ONLY WHEN REMEDIATE == 'YES'"
+  set_fact:
+   LPH_a: "{{ na_ao1.stdout_lines[4] | regex_search(regexp,'\\1')|list|join }}"
+  vars:
+   regexp: '.*:\s+(\w+)'
+  when: >
+    na_ao1 is not skipped and
+    remediate == "YES" and
+    execute_1_1_1 == "YES" and
+    LPH|int < lngth_pw_history_cis
+
+- name: Setup Recheck Output - debug_block_greater_than_equal_to.yml
+  include_tasks: debug_block_greater_than_equal_to.yml
+  vars:
+   msg_string: "Recheck: The Length of Password History setting (1.1.1)"
+   check_value: "{{ LPH_a }}"
+   check_against: "{{ lngth_pw_history_cis }}"
+  when: >
+    remediate == "YES" and
+    na_ao1 is not skipped and
+    execute_1_1_1 == "YES"
+
+
+# ===================================================================
+# 1.1.2 (L1) Get the value for Maximum password age (days):
+# ===================================================================
+- name: "set output variable"
+  set_fact:
+   maxPWage: "{{ nao.stdout_lines[2] | regex_search(regexp,'\\1')|list|join }}"
+  vars:
+   regexp: '.*:\s+(\w+)'
+
+- name: Setup Output - debug_block_less_than_equal_to_but_not_zero.yml
+  include_tasks: debug_block_less_than_equal_to_but_not_zero.yml
+  vars:
+   msg_string: "The Maximum Password Age setting (1.1.2)"
+   check_value: "{{ maxPWage }}"
+   check_against: "{{ maxPWage_cis }}"
+  when: >
+    execute_1_1_2 == "YES"
+
+
+- name: "1.1.2 (L1) check if the the Max Pw age is cmplnt and if not, rslve it"
+  win_shell: net accounts /MAXPWAGE:{{ maxPWage_cis }}
+  when: >
+    remediate == "YES" and
+    execute_1_1_2 == "YES" and
+    (maxPWage|int > maxPWage_cis or maxPWage|int == 0)
+
+- name: execute net accounts cmd -AFTER REMEDIATION ONLY WHEN REMEDIATE == 'YES'
+  win_shell: net accounts
+  register: na_ao2
+  when: >
+    remediate == "YES" and
+    execute_1_1_2 == "YES" and
+    (maxPWage|int > maxPWage_cis or maxPWage|int == 0)
+
+
+# ===================================================================
+# 1.1.2 (L1) Get the value for Maximum password age (days) -
+# AFTER REMEDIATION ONLY WHEN REMEDAITE == 'YES' and the value is Non
+# compliant.
+# ===================================================================
+- name: "set output variable - AFTER REMEDIATION ONLY WHEN REMEDAITE == 'YES':"
+  set_fact:
+   mxPWag_a: "{{ na_ao2.stdout_lines[2]|regex_search(regexp,'\\1')|list|join }}"
+  vars:
+   regexp: '.*:\s+(\w+)'
+  when: >
+    na_ao2 is not skipped and
+    remediate == "YES" and
+    execute_1_1_2 == "YES" and
+    (maxPWage|int > maxPWage_cis or maxPWage|int == 0)
+
+- name: Setup Recheck Output - debug_block_less_than_equal_to_but_not_zero.yml
+  include_tasks: debug_block_less_than_equal_to_but_not_zero.yml
+  vars:
+   msg_string: "Recheck: The Maximum Password Age setting (1.1.2)"
+   check_value: "{{ mxPWag_a  }}"
+   check_against: "{{ maxPWage_cis }}"
+  when: >
+    na_ao2 is not skipped and
+    remediate == "YES" and
+    execute_1_1_2 == "YES"
+
+
+# ===================================================================
+# 1.1.3 (L1) Get the value for Minimum Password age (days):
+# ===================================================================
+- name: "set output varaible"
+  set_fact:
+   minPWage: "{{ nao.stdout_lines[1] | regex_search(regexp,'\\1')|list|join }}"
+  vars:
+   regexp: '.*:\s+(\w+)'
+
+- name: Setup Output - debug_block_greater_than_equal_to.yml
+  include_tasks: debug_block_greater_than_equal_to.yml
+  vars:
+   msg_string: "The Minimum Password Age setting (1.1.3)"
+   check_value: "{{ minPWage }}"
+   check_against: "{{ minPWage_cis }}"
+  when: >
+    execute_1_1_3 == "YES"
+
+
+- name: "1.1.3 (L1) check if the the Min Pw age is cmplnt and if not, rslve it"
+  win_shell: net accounts /MINPWAGE:{{ minPWage_cis }}
+  when: >
+    remediate == "YES" and
+    execute_1_1_3 == "YES" and
+    minPWage|int < minPWage_cis
+
+- name: execute net accounts cmd -AFTER REMEDIATION ONLY WHEN REMEDIATE == 'YES'
+  win_shell: net accounts
+  register: na_ao3
+  when: >
+    remediate == "YES" and
+    execute_1_1_3 == "YES" and
+    minPWage|int < minPWage_cis
+
+
+# ===================================================================
+# 1.1.3 (L1) Get the value for Minimum Password age (days) -
+# AFTER REMEDIATION ONLY WHEN REMEDAITE == 'YES':
+# ===================================================================
+- name: "set output varaible - AFTER REMEDIATION ONLY WHEN REMEDAITE == 'YES':"
+  set_fact:
+   mnPW_a: "{{ na_ao3.stdout_lines[1] | regex_search(regexp,'\\1')|list|join }}"
+  vars:
+   regexp: '.*:\s+(\w+)'
+  when: >
+    na_ao3 is not skipped and
+    remediate == "YES" and
+    execute_1_1_3 == "YES" and
+    minPWage|int < minPWage_cis
+
+- name: Setup Recheck Output - debug_block_greater_than_equal_to.yml
+  include_tasks: debug_block_greater_than_equal_to.yml
+  vars:
+   msg_string: "Recheck: The Minimum Password Age setting (1.1.3)"
+   check_value: "{{ mnPW_a }}"
+   check_against: "{{ minPWage_cis }}"
+  when: >
+    na_ao3 is not skipped and
+    remediate == "YES" and
+    execute_1_1_3 == "YES"
+
+
+# ===================================================================
+# 1.1.4 (L1) Get the value for Minimum password length:
+# ===================================================================
+- name: "set output variable"
+  set_fact:
+   MinPWlgth: "{{ nao.stdout_lines[3] | regex_search(regexp,'\\1')|list|join }}"
+  vars:
+   regexp: '.*:\s+(\w+)'
+
+- name: Setup Output - debug_block_greater_than_equal_to.yml
+  include_tasks: debug_block_greater_than_equal_to.yml
+  vars:
+   msg_string: "The Minimum Password Length setting (1.1.4)"
+   check_value: "{{ MinPWlgth }}"
+   check_against: "{{ MinPWlgth_cis }}"
+  when: >
+    execute_1_1_4 == "YES"
+
+
+- name: "1.1.4 (L1) chck if the the Min Pw Lngth is cmplnt and if not, rslve it"
+  win_shell: net accounts /MINPWLEN:{{ MinPWlgth_cis }}
+  when: >
+    remediate == "YES" and
+    execute_1_1_4 == "YES" and
+    MinPWlgth|int < MinPWlgth_cis
+
+- name: execute net accounts cmd -AFTER REMEDIATION ONLY WHEN REMEDIATE == 'YES'
+  win_shell: net accounts
+  register: na_ao4
+  when: >
+    remediate == "YES" and
+    execute_1_1_4 == "YES" and
+    MinPWlgth|int < MinPWlgth_cis
+
+
+# ===================================================================
+# 1.1.4 (L1) Get the value for Minimum password length -
+# AFTER REMEDIATION ONLY WHEN REMEDAITE == 'YES':
+# ===================================================================
+- name: "set output variable - AFTER REMEDIATION ONLY WHEN REMEDAITE == 'YES':"
+  set_fact:
+   MnPWL_A: "{{ na_ao4.stdout_lines[3]|regex_search(regexp,'\\1')|list|join }}"
+  vars:
+   regexp: '.*:\s+(\w+)'
+  when: >
+    na_ao4 is not skipped and
+    remediate == "YES" and
+    execute_1_1_4 == "YES" and
+    MinPWlgth|int < MinPWlgth_cis
+
+- name: Setup Recheck Output - debug_block_greater_than_equal_to.yml
+  include_tasks: debug_block_greater_than_equal_to.yml
+  vars:
+   msg_string: "Recheck: The Minimum Password Length setting (1.1.4)"
+   check_value: "{{ MnPWL_A }}"
+   check_against: "{{ MinPWlgth_cis }}"
+  when: >
+    na_ao4 is not skipped and
+    remediate == "YES" and
+    execute_1_1_4 == "YES"
+
+
+# ========================================================================
+# 1.1.5 (L1) Ensure 'Password must meet complexity requirements' is set to
+# 'Enabled' (Scored)
+# ========================================================================
+- name: "1.1.5 (L1) 'Pw must meet complexity requirements' is set to 'Enabled'"
+  win_security_policy:
+   section: System Access
+   key: PasswordComplexity
+   value: 1
+  when: remediate == "YES" and execute_1_1_5 == "YES"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+   CIS_Number: "1.1.5"
+  when: >
+    remediate == "YES" and
+    execute_1_1_5 == "YES"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+   CIS_Number: "1.1.5"
+  when: >
+    remediate != "YES" and
+    execute_1_1_5 == "YES"
+
+
+# =========================================================================
+# 1.1.6 (L1) Ensure 'Store passwords using reversible encryption' is set to
+# 'Disabled' (Scored)
+# =========================================================================
+- name: "1.1.6 (L1) 'Store pws using reversible encryption' set to 'Disabled'"
+  win_security_policy:
+   section: System Access
+   key: ClearTextPassword
+   value: 0
+  when: remediate == "YES" and execute_1_1_6 == "YES"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+   CIS_Number: "1.1.6"
+  when: >
+    remediate == "YES" and
+    execute_1_1_6 == "YES"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+   CIS_Number: "1.1.6"
+  when: >
+    remediate != "YES" and
+    execute_1_1_6 == "YES"
+
+
+# ===================================================================
+# 1.2.1 (L1) Get the value for Lockout duration (minutes):
+# ===================================================================
+- name: "set output variable"
+  set_fact:
+   lckt_drtn: "{{ nao.stdout_lines[6] | regex_search(regexp,'\\1')|list|join }}"
+  vars:
+   regexp: '.*:\s+(\w+)'
+
+- name: Setup Output - debug_block_greater_than_equal_to.yml
+  include_tasks: debug_block_greater_than_equal_to.yml
+  vars:
+   msg_string: "The Lockout Duration setting (1.2.1)"
+   check_value: "{{ lckt_drtn }}"
+   check_against: "{{ lckt_drtn_cis }}"
+  when: >
+    execute_1_2_1 == "YES"
+
+
+- name: "1.2.1 (L1) chck if the Lckout Duration is cmplnt and if not, rslve it"
+  win_shell: net accounts /lockoutduration:{{ lckt_drtn_cis }}
+  when: >
+    remediate == "YES" and
+    execute_1_2_1 == "YES" and
+    lckt_drtn|int < lckt_drtn_cis
+
+- name: execute net accounts cmd -AFTER REMEDIATION ONLY WHEN REMEDIATE == 'YES'
+  win_shell: net accounts
+  register: na_ao5
+  when: >
+    remediate == "YES" and
+    execute_1_2_1 == "YES" and
+    lckt_drtn|int < lckt_drtn_cis
+
+
+# ===================================================================
+# 1.2.1 (L1) Get the value for Lockout duration (minutes) -
+# AFTER REMEDIATION ONLY WHEN REMEDAITE == 'YES':
+# ===================================================================
+- name: "set output variable - AFTER REMEDIATION ONLY WHEN REMEDAITE == 'YES':"
+  set_fact:
+   LD_A: "{{ na_ao5.stdout_lines[6] | regex_search(regexp,'\\1')|list|join }}"
+  vars:
+   regexp: '.*:\s+(\w+)'
+  when: >
+    na_ao5 is not skipped and
+    remediate == "YES" and
+    execute_1_2_1 == "YES" and
+    lckt_drtn|int < lckt_drtn_cis
+
+- name: Setup Recheck Output - debug_block_greater_than_equal_to.yml
+  include_tasks: debug_block_greater_than_equal_to.yml
+  vars:
+   msg_string: "The Lockout Duration setting (1.2.1)"
+   check_value: "{{ LD_A }}"
+   check_against: "{{ lckt_drtn_cis }}"
+  when: >
+    na_ao5 is not skipped and
+    remediate == "YES" and
+    execute_1_2_1 == "YES"
+
+
+# ===================================================================
+# 1.2.2 (L1) Get the value for Lockout threshold:
+# ===================================================================
+- name: "set output variable"
+  set_fact:
+   LT: "{{ nao.stdout_lines[5] | regex_search(regexp,'\\1')|list|join }}"
+  vars:
+   regexp: '.*:\s+(\w+)'
+
+- name: Setup Output - debug_block_less_than_equal_to_but_not_zero.yml
+  include_tasks: debug_block_less_than_equal_to_but_not_zero.yml
+  vars:
+   msg_string: "The Lockout Threshold setting (1.2.2)"
+   check_value: "{{ LT }}"
+   check_against: "{{ LT_cis }}"
+  when: >
+    execute_1_2_2 == "YES"
+
+
+- name: "1.2.2 (L1) chck if the Lckout Thrshld is cmplnt and if not, resolve it"
+  win_shell: net accounts /lockoutthreshold:{{ LT_cis }}
+  when: >
+    remediate == "YES" and
+    execute_1_2_2 == "YES" and
+    (LT|int > LT_cis or LT|int == 0)
+
+- name: execute net accounts cmd -AFTER REMEDIATION ONLY WHEN REMEDIATE == 'YES'
+  win_shell: net accounts
+  register: na_ao6
+  when: >
+    remediate == "YES" and
+    execute_1_2_2 == "YES" and
+    (LT|int > LT_cis or LT|int == 0)
+
+
+# ===================================================================
+# 1.2.2 (L1) Get the value for Lockout threshold -
+# AFTER REMEDIATION ONLY WHEN REMEDAITE == 'YES':
+# ===================================================================
+- name: "set output variable - AFTER REMEDIATION ONLY WHEN REMEDAITE == 'YES':"
+  set_fact:
+   LT_A: "{{ na_ao6.stdout_lines[5] | regex_search(regexp,'\\1')|list|join }}"
+  vars:
+   regexp: '.*:\s+(\w+)'
+  when: >
+    na_ao6 is not skipped and
+    remediate == "YES" and
+    execute_1_2_2 == "YES" and
+    (LT|int > LT_cis or LT|int == 0)
+
+- name: Setup Recheck Output - debug_block_less_than_equal_to_but_not_zero.yml
+  include_tasks: debug_block_less_than_equal_to_but_not_zero.yml
+  vars:
+   msg_string: "Recheck: The Lockout Threshold setting (1.2.2)"
+   check_value: "{{ LT_A }}"
+   check_against: "{{ LT_cis }}"
+  when: >
+    na_ao6 is not skipped and
+    remediate == "YES" and
+    execute_1_2_2 == "YES"
+
+
+# ===================================================================
+# 1.2.3 (L1) Get the value for Lockout observation window (minutes):
+# ===================================================================
+- name: "set output variable"
+  set_fact:
+   LOW: "{{ nao.stdout_lines[7] | regex_search(regexp,'\\1')|list|join }}"
+  vars:
+   regexp: '.*:\s+(\w+)'
+
+- name: Setup Output - debug_block_greater_than_equal_to.yml
+  include_tasks: debug_block_greater_than_equal_to.yml
+  vars:
+   msg_string: "The Lockout Observation Window setting (1.2.3)"
+   check_value: "{{ LOW }}"
+   check_against: "{{ LOW_cis }}"
+  when: >
+    execute_1_2_3 == "YES"
+
+
+- name: "1.2.3 (L1) chck if the Lckout Obsrvtn Wndw sttng is cmplnt"
+  win_shell: net accounts /lockoutwindow:{{ LOW_cis }}
+  when: >
+    remediate == "YES" and
+    execute_1_2_3 == "YES" and
+    LOW|int < LOW_cis
+
+- name: execute net accounts cmd -AFTER REMEDIATION ONLY WHEN REMEDIATE == 'YES'
+  win_shell: net accounts
+  register: na_ao7
+  when: >
+    remediate == "YES" and
+    execute_1_2_3 == "YES" and
+    LOW|int < LOW_cis
+
+# ===================================================================
+# 1.2.3 (L1) Get the value for Lockout observation window (minutes) -
+# AFTER REMEDIATION ONLY WHEN REMEDAITE == 'YES':
+# ===================================================================
+- name: "set output variable - AFTER REMEDIATION ONLY WHEN REMEDAITE == 'YES':"
+  set_fact:
+   LOW_a: "{{ na_ao7.stdout_lines[7] | regex_search(regexp,'\\1')|list|join }}"
+  vars:
+   regexp: '.*:\s+(\w+)'
+  when: >
+    na_ao7 is not skipped and
+    remediate == "YES" and
+    execute_1_2_3 == "YES" and
+    LOW|int < LOW_cis
+
+- name: Setup Recheck Output - debug_block_greater_than_equal_to.yml
+  include_tasks: debug_block_greater_than_equal_to.yml
+  vars:
+   msg_string: "Recheck: The Lockout Observation Window setting (1.2.3)"
+   check_value: "{{ LOW_a }}"
+   check_against: "{{ LOW_cis }}"
+  when: >
+    na_ao7 is not skipped and
+    remediate == "YES" and
+    execute_1_2_3 == "YES"
+
+
+# ===================================================================
+# Get the value for Computer Role:
+# ===================================================================
+- name: "set output variable"
+  set_fact:
+   cmptr_rle: "{{ nao.stdout_lines[8] | regex_search(regexp,'\\1')|list|join }}"
+  vars:
+   regexp: '.*:\s+(\w+)'

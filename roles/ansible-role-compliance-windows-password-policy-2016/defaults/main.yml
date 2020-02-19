@@ -1,0 +1,20 @@
+---
+# defaults file for ansible-role-compliance-windows-password-policy-2016
+remediate: "YES"
+approved_windows_ver: "2016"
+execute_1_1_1: "YES"
+execute_1_1_2: "YES"
+execute_1_1_3: "YES"
+execute_1_1_4: "YES"
+execute_1_1_5: "YES"
+execute_1_1_6: "YES"
+execute_1_2_1: "YES"
+execute_1_2_2: "YES"
+execute_1_2_3: "YES"
+minPWage_cis: 1
+maxPWage_cis: 60
+MinPWlgth_cis: 14
+lngth_pw_history_cis: 24
+LT_cis: 10
+lckt_drtn_cis: 15
+LOW_cis: 15

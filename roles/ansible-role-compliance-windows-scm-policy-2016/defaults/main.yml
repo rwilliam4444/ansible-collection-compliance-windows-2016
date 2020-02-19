@@ -1,0 +1,9 @@
+---
+# defaults file for ansible-role-compliance-windows-scm-policy-2016
+
+remediate: "NO"
+approved_windows_ver: "2016"
+execute_18_6_1: "YES"
+execute_18_6_2: "YES"
+LocalAccountTokenFilterPolicy_cis: "1"
+UseLogonCredential_cis: "0"

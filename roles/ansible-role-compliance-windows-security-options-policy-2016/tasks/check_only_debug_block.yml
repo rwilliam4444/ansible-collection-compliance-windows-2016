@@ -1,0 +1,11 @@
+---
+- block:
+  - debug:
+     msg:
+     - "The FQDN hostname is.............{{ FQDN_hostname }}"
+     - "The default_ipv4_address is......{{ default_ipv4_address }}"
+     - ""
+     - "The 'remediate' variable is Not set to 'YES'.  Thus, this playbook"
+     - "will Not try to execute the remediation command for {{ CIS_Number }}."
+     - ""
+     - "Unfortunately, we are unable to validate this setting via automation."

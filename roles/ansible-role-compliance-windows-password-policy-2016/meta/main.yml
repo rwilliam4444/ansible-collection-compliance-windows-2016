@@ -1,0 +1,18 @@
+---
+galaxy_info:
+  author: Richard M. Williams
+  role_name: compliance-windows-password-policy-2016
+  description: Win 2016 Check & Remediation for the CIS Password Policy section.
+  company: IBM Corp
+  license: IBM Intellectual Property
+  min_ansible_version: 1.8
+  platforms:
+    - name: Windows
+      versions:
+        - 2008 and higher
+  galaxy_tags:
+    - server
+    - windows
+    - compliance
+    - system
+dependencies: []

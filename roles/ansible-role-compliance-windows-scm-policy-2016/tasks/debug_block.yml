@@ -1,0 +1,26 @@
+---
+- block:
+  - debug:
+     msg:
+     - "The FQDN hostname is.............{{ FQDN_hostname }}"
+     - "The default_ipv4_address is......{{ default_ipv4_address }}"
+     - ""
+     - "{{ msg_string }} is Non-Compliant:"
+     - "{{ check_value }}"
+     - "The value should be:"
+     - "{{ check_against }}"
+  when: >
+    check_value != check_against
+
+- block:
+  - debug:
+     msg:
+     - "The FQDN hostname is.............{{ FQDN_hostname }}"
+     - "The default_ipv4_address is......{{ default_ipv4_address }}"
+     - ""
+     - "{{ msg_string }} is Compliant:"
+     - "{{ check_value }}"
+     - "It matches the following CIS value:"
+     - "{{ check_against }}"
+  when: >
+    check_value == check_against

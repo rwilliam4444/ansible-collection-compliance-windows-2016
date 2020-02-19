@@ -1,0 +1,1858 @@
+---
+# =============================================================================
+# tasks file for ansible-role-compliance-windows-security-options-policy-2016
+# =============================================================================
+#
+#
+# ==================================================================
+# collect hostname and ip address information
+# ==================================================================
+- name: collect hostname
+  win_shell: >
+    $sysinfo=Get-WmiObject -Class win32_computersystem;
+    $server="{0}.{1}" -f $sysinfo.Name, $sysinfo.domain;
+    $server
+  register: FQDN_hostname
+  ignore_errors: true
+
+- name: set output
+  set_fact:
+   FQDN_hostname: "{{ FQDN_hostname.stdout_lines | join }}"
+
+- block:
+   - debug:
+      msg:
+       - "The FQDN hostname is.....{{ FQDN_hostname }}"
+
+- name: collect ip address
+  win_shell: >
+     (Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway -ne
+     $null -and $_.netadapter.status -ne "Disconnected"}).ipv4address.ipaddress
+  register: default_ipv4_address
+  ignore_errors: true
+
+- name: set output
+  set_fact:
+   default_ipv4_address: "{{ default_ipv4_address.stdout_lines }}"
+
+- block:
+   - debug:
+      msg:
+       - "The default_ipv4_address is.....{{ default_ipv4_address }}"
+
+
+# ==================================================================
+# Get O\S information
+# ==================================================================
+- name: "Get Operating Systerm version information"
+  win_shell: (get-WMIobject win32_operatingsystem).Name
+  register: Win_os_ver_out
+  ignore_errors: true
+
+- name: "set output variable"
+  set_fact:
+   Win_os_ver_out="{{ Win_os_ver_out.stdout_lines|list|join }}"
+
+- name: "Check and ensure wndows operating system version is 2016"
+  fail:
+   msg: "This server is NOT a windows 2016 server: {{ Win_os_ver_out }}"
+  when: approved_windows_ver not in Win_os_ver_out
+
+- block:
+   - debug:
+      msg:
+       - "This server IS a windows 2016 server: {{ Win_os_ver_out }}"
+  when: approved_windows_ver in Win_os_ver_out
+
+
+# ==================================================================
+# Get server role information
+# ==================================================================
+- name: "Get server role information"
+  win_shell: wmic.exe Computersystem get DomainRole
+  register: DomainR_out
+  ignore_errors: true
+
+- name: "set output variable"
+  set_fact:
+   DomainR_out: "{{ DomainR_out.stdout|regex_search(regexp,'\\1')|list|join }}"
+  vars:
+   regexp: 'DomainRole\s+(\d+)'
+
+- block:
+   - debug:
+      msg:
+       - "The DomainRole is NOT a Backup DC or a DC: '{{ DomainR_out }}'."
+  when: DomainR_out != "4" and DomainR_out != "5"
+
+- block:
+   - debug:
+      msg:
+       - "The DomainRole is a Backup DC or a DC:'{{ DomainR_out }}'."
+  when: DomainR_out == "4" or DomainR_out == "5"
+
+
+# =============================================================================
+# 2.3.1.1 (L1) Ensure 'Accounts: Administrator account status' is set to
+# 'Disabled' (Scored)
+# =============================================================================
+- name: "2.3.1.1 (L1) 'Accounts: Administrator accnt status' set to 'Disabled'"
+  win_user:
+   name: Administrator
+   account_disabled: true
+
+  register: AdministratorDisable_out
+  ignore_errors: true
+  when: remediate == "YES" and execute_2_3_1_1 == "YES"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+   CIS_Number: "2.3.1.1"
+  when: >
+    remediate == "YES" and execute_2_3_1_1 == "YES"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+   CIS_Number: "2.3.1.1"
+  when: >
+    remediate != "YES" and execute_2_3_1_1 == "YES"
+
+
+# =============================================================================
+# 2.3.1.2 (L1)
+# =============================================================================
+- name: "2.3.1.2 (L1) Accnts: Blck Mcrsft accnts...or log on with Mcrsft accnts"
+  include_tasks: win_check.yml
+  vars:
+   title: "The noconnecteduser setting (2.3.1.2)"
+   check_against: "{{ NoConnectedUser_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -name
+     "NoConnectedUser"|Select-Object -ExpandProperty "NoConnectedUser"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System
+    name: "NoConnectedUser"
+    data: "1"
+    type: dword
+  when: execute_2_3_1_2 == "YES"
+
+
+# =============================================================================
+# 2.3.1.3 (L1) Ensure 'Accounts: Guest account status' is set to 'Disabled'
+# =============================================================================
+- name: "2.3.1.3 (L1) 'Accounts: Guest account status' is set to 'Disabled'"
+  win_user:
+   name: Guest
+   account_disabled: true
+
+  register: GuestDisable_out
+  ignore_errors: true
+  when: remediate == "YES" and execute_2_3_1_3 == "YES"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+   CIS_Number: "2.3.1.3"
+  when: >
+    remediate == "YES" and execute_2_3_1_3 == "YES"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+   CIS_Number: "2.3.1.3"
+  when: >
+    remediate != "YES" and execute_2_3_1_3 == "YES"
+
+
+# =============================================================================
+# 2.3.1.4 (L1)
+# =============================================================================
+- name: "2.3.1.4 (L1) 'Lmt lcl accnt use of blnk pws to cnsle lgn only'='Enbld'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The LimitBlankPasswordUse setting (2.3.1.4)"
+   check_against: "{{ LimitBlankPasswordUse_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -name
+     "LimitBlankPasswordUse"|Select-Object
+     -ExpandProperty "LimitBlankPasswordUse"
+   win_regedit_cmd:
+    path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
+    name: LimitBlankPasswordUse
+    data: "1"
+    type: dword
+  when: execute_2_3_1_4 == "YES"
+
+
+# =============================================================================
+# 2.3.1.5 (L1) Configure 'Accounts: Rename administrator account' (Scored)
+# =============================================================================
+- name: "2.3.1.5 (L1) Configure 'Accounts: Rename administrator account'"
+  win_shell: >
+    rename-localuser -name "Administrator" -NewName "AdministratorRenamed"
+  register: AdministratorRenamed_out
+  ignore_errors: true
+  when: remediate == "YES" and execute_2_3_1_5 == "YES"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+   CIS_Number: "2.3.1.5"
+  when: >
+    remediate == "YES" and execute_2_3_1_5 == "YES"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+   CIS_Number: "2.3.1.5"
+  when: >
+    remediate != "YES" and execute_2_3_1_5 == "YES"
+
+
+# =============================================================================
+# 2.3.1.6 (L1) Configure 'Accounts: Rename guest account' (Scored)
+# =============================================================================
+- name: "2.3.1.6 (L1) Configure 'Accounts: Rename guest account' (Scored)"
+  win_shell: rename-localuser -name "Guest" -NewName "GuestRenamed"
+  register: GuestRenamed_out
+  ignore_errors: true
+  when: remediate == "YES" and execute_2_3_1_6 == "YES"
+
+- name: remediation debug block
+  include_tasks: remediation_debug_block.yml
+  vars:
+   CIS_Number: "2.3.1.6"
+  when: >
+    remediate == "YES" and execute_2_3_1_6 == "YES"
+
+- name: check only debug block
+  include_tasks: check_only_debug_block.yml
+  vars:
+   CIS_Number: "2.3.1.6"
+  when: >
+    remediate != "YES" and execute_2_3_1_6 == "YES"
+
+
+# =============================================================================
+# 2.3.2.1 (L1)
+# =============================================================================
+- name: "2.3.2.1 (L1) 'Audit: Force audit.... settings' is set to 'Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The SCENoApplyLegacyAuditPolicy setting (2.3.2.1)"
+   check_against: "{{ SCENoApplyLegacyAuditPolicy_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -name
+     "SCENoApplyLegacyAuditPolicy"|Select-Object
+     -ExpandProperty "SCENoApplyLegacyAuditPolicy"
+   win_regedit_cmd:
+    path: HKLM:\SYSTEM\CurrentControlSet\Control\Lsa
+    name: "SCENoApplyLegacyAuditPolicy"
+    data: "1"
+    type: dword
+  when: execute_2_3_2_1 == "YES"
+
+
+# ============================================================================
+# 2.3.2.2 (L1)
+# ============================================================================
+- name: "2.3.2.2 (L1) Sht dwn system imdtly if unable to log sec audts'='Dsbld'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The CrashOnAuditFail setting (2.3.2.2)"
+   check_against: "{{ CrashOnAuditFail_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -name
+     "CrashOnAuditFail"|Select-Object -ExpandProperty "CrashOnAuditFail"
+   win_regedit_cmd:
+    path: HKLM:\SYSTEM\CurrentControlSet\Control\Lsa
+    name: "CrashOnAuditFail"
+    data: "1"
+    type: dword
+  when: execute_2_3_2_2 == "YES"
+
+
+# =============================================================================
+# 2.3.4.1 (L1)
+# =============================================================================
+- name: "2.3.4.1 (L1) 'Dvcs: Allwd to frmt & eject removable media'='Admins'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The AllocateDASD setting (2.3.4.1)"
+   check_against: "{{ AllocateDASD_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" -name
+     "AllocateDASD"|Select-Object -ExpandProperty "AllocateDASD"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon
+    name: "AllocateDASD"
+    data: "0"
+    type: dword
+  when: execute_2_3_4_1 == "YES"
+
+
+# =============================================================================
+# 2.3.4.2 (L1)
+# =============================================================================
+- name: "2.3.4.2 (L1) Dvcs: Prvnt usrs frm instlling printer drivers=Enabled"
+  include_tasks: win_check.yml
+  vars:
+   title: "The AddPrinterDrivers setting (2.3.4.2)"
+   check_against: "{{ AddPrinterDrivers_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SYSTEM\CurrentControlSet\Control\Print\Providers\LanMan
+     Print Services\Servers"
+     -name "AddPrinterDrivers"|Select-Object -ExpandProperty "AddPrinterDrivers"
+   win_regedit_cmd:
+    path: "{{ prnt_prvdrs_reg }}LanMan Print Services\\Servers"
+    name: "AddPrinterDrivers"
+    data: "1"
+    type: dword
+  when: execute_2_3_4_2 == "YES"
+
+
+# =============================================================================
+# 2.3.5.1 (L1) Ensure 'Domain controller: Allow server operators to schedule
+# tasks' is set to 'Disabled' (DC only) (Scored)
+# =============================================================================
+- name: "2.3.5.1 (L1) 'DC: Allw srvr oprtrs to schdl tsks'='Disabled' (DC only)"
+  include_tasks: win_check_for_DCs.yml
+  vars:
+   title: "The SubmitControl setting (2.3.5.1)"
+   check_against: "{{ SubmitControl_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\System\CurrentControlSet\Control\LSA" -name
+     "SubmitControl"|Select-Object -ExpandProperty "SubmitControl"
+   win_regedit_cmd:
+    path: HKLM:\System\CurrentControlSet\Control\LSA
+    name: "SubmitControl"
+    data: "0"
+    type: dword
+  when: execute_2_3_5_1 == "YES" and (DomainR_out == "4" or DomainR_out == "5")
+
+
+# =============================================================================
+# 2.3.5.2 (L1) Ensure 'Domain controller: LDAP server signing requirements' is
+# set to 'Require signing' (DC only) (Scored)
+# =============================================================================
+- name: "2.3.5.2 (L1) 'DC: LDAP srvr sgnng rqrmnts'='Require signing' (DC only)"
+  include_tasks: win_check_for_DCs.yml
+  vars:
+   title: "The LDAPServerIntegrity setting (2.3.5.2)"
+   check_against: "{{ LDAPServerIntegrity_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\System\CurrentControlSet\Services\NTDS\Parameters" -name
+     "LDAPServerIntegrity"|Select-Object -ExpandProperty "LDAPServerIntegrity"
+   win_regedit_cmd:
+    path: HKLM:\System\CurrentControlSet\Services\NTDS\Parameters
+    name: "LDAPServerIntegrity"
+    data: "2"
+    type: dword
+  when: execute_2_3_5_2 == "YES" and (DomainR_out == "4" or DomainR_out == "5")
+
+
+# =============================================================================
+# 2.3.5.3 (L1) Ensure 'Domain controller: Refuse machine account password
+# changes' is set to 'Disabled' (DC only) (Scored)
+# =============================================================================
+- name: "2.3.5.3 (L1) 'DC: Refuse mchne accnt pw changes'='Disabled' (DC only)"
+  include_tasks: win_check_for_DCs.yml
+  vars:
+   title: "The RefusePasswordChange setting (2.3.5.3)"
+   check_against: "{{ RefusePasswordChange_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\System\CurrentControlSet\Services\Netlogon\Parameters" -name
+     "RefusePasswordChange"|Select-Object -ExpandProperty "RefusePasswordChange"
+   win_regedit_cmd:
+    path: HKLM:\System\CurrentControlSet\Services\Netlogon\Parameters
+    name: "RefusePasswordChange"
+    data: "0"
+    type: dword
+  when: execute_2_3_5_3 == "YES" and (DomainR_out == "4" or DomainR_out == "5")
+
+
+# =============================================================================
+# 2.3.6.1 (L1)
+# =============================================================================
+- name: "2.3.6.1 (L1) 'Dgtlly encrypt or sgn scre chnl data(alwys)'='Enbld'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The RequireSignOrSeal setting (2.3.6.1)"
+   check_against: "{{ RequireSignOrSeal_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon\Parameters" -name
+     "RequireSignOrSeal"|Select-Object -ExpandProperty "RequireSignOrSeal"
+   win_regedit_cmd:
+    path: HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon\Parameters
+    name: "RequireSignOrSeal"
+    data: "1"
+    type: dword
+  when: execute_2_3_6_1 == "YES"
+
+
+# =============================================================================
+# 2.3.6.2 (L1)
+# =============================================================================
+- name: "2.3.6.2 (L1) 'Dgtly encrypt scre chnnl data (when possible)'='Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The SealSecureChannel setting (2.3.6.2)"
+   check_against: "{{ SealSecureChannel_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon\Parameters" -name
+     "SealSecureChannel"|Select-Object -ExpandProperty "SealSecureChannel"
+   win_regedit_cmd:
+    path: HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon\Parameters
+    name: "SealSecureChannel"
+    data: "1"
+    type: dword
+  when: execute_2_3_6_2 == "YES"
+
+
+# =============================================================================
+# 2.3.6.3 (L1)
+# =============================================================================
+- name: "2.3.6.3 (L1) 'Digitally sign secre chnnl data (when possible)'='Enbld'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The SignSecureChannel setting (2.3.6.3)"
+   check_against: "{{ SignSecureChannel_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon\Parameters" -name
+     "SignSecureChannel"|Select-Object -ExpandProperty "SignSecureChannel"
+   win_regedit_cmd:
+    path: HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon\Parameters
+    name: "SignSecureChannel"
+    data: "1"
+    type: dword
+  when: execute_2_3_6_3 == "YES"
+
+
+# =============================================================================
+# 2.3.6.4 (L1)
+# =============================================================================
+- name: "2.3.6.4 (L1) 'Domain member: Dsble mchne accnt pw changes'='Disabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The DisablePasswordChange setting (2.3.6.4)"
+   check_against: "{{ DisablePasswordChange_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon\Parameters" -name
+     "DisablePasswordChange"|Select-Object
+     -ExpandProperty "DisablePasswordChange"
+   win_regedit_cmd:
+    path: HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon\Parameters
+    name: "DisablePasswordChange"
+    data: "0"
+    type: dword
+  when: execute_2_3_6_4 == "YES"
+
+
+# =============================================================================
+# 2.3.6.5 (L1)
+# =============================================================================
+- name: "2.3.6.5 (L1) Max machine acct pw age is =< 30, but not 0"
+  include_tasks: win_check_less_than_equal_to_but_not_zero.yml
+  vars:
+   title: "The MaximumPasswordAge setting (2.3.6.5)"
+   check_against: "{{ MaximumPasswordAge_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon\Parameters" -name
+     "MaximumPasswordAge"|Select-Object -ExpandProperty "MaximumPasswordAge"
+   win_regedit_cmd:
+    path: HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon\Parameters
+    name: "MaximumPasswordAge"
+    data: "30"
+    type: dword
+  when: execute_2_3_6_5 == "YES"
+
+
+# =============================================================================
+# 2.3.6.6 (L1)
+# =============================================================================
+- name: "2.3.6.6 (L1) 'Dmn mmbr:Require strng (W2k or ltr) sessn ky'='Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The RequireStrongKey setting (2.3.6.6)"
+   check_against: "{{ RequireStrongKey_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon\Parameters" -name
+     "RequireStrongKey"|Select-Object -ExpandProperty "RequireStrongKey"
+   win_regedit_cmd:
+    path: HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon\Parameters
+    name: "RequireStrongKey"
+    data: "1"
+    type: dword
+  when: execute_2_3_6_6 == "YES"
+
+
+# =============================================================================
+# 2.3.7.1 (L1)
+# =============================================================================
+- name: "2.3.7.1 (L1) 'Interactive lgn: Do not dsply last usr name'='Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The DontDisplayLastUserName setting (2.3.7.1)"
+   check_against: "{{ DontDisplayLastUserName_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -name
+     "DontDisplayLastUserName"|Select-Object
+     -ExpandProperty "DontDisplayLastUserName"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System
+    name: "DontDisplayLastUserName"
+    data: "1"
+    type: dword
+  when: execute_2_3_7_1 == "YES"
+
+
+# ============================================================================
+# 2.3.7.2 (L1)
+# ============================================================================
+- name: "2.3.7.2 (L1) 'Intrctve logon: Do not require CTRL+ALT+DEL'='Disabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The DisableCAD setting (2.3.7.2)"
+   check_against: "{{ DisableCAD_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -name
+     "DisableCAD"|Select-Object -ExpandProperty "DisableCAD"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System
+    name: "DisableCAD"
+    data: "0"
+    type: dword
+  when: execute_2_3_7_2 == "YES"
+
+
+# =============================================================================
+# 2.3.7.3 (L1)
+# =============================================================================
+- name: "2.3.7.3 (L1) 'Machine inactivity limit'=<'900 second(s), but not 0'"
+  include_tasks: win_check_less_than_equal_to_but_not_zero.yml
+  vars:
+   title: "The InactivityTimeoutSecs setting (2.3.7.3)"
+   check_against: "{{ InactivityTimeoutSecs_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -name
+     "InactivityTimeoutSecs"|Select-Object
+     -ExpandProperty "InactivityTimeoutSecs"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System
+    name: "InactivityTimeoutSecs"
+    data: "900"
+    type: dword
+  when: execute_2_3_7_3 == "YES"
+
+
+# =============================================================================
+# 2.3.7.4
+# =============================================================================
+- name: "set output variable"
+  set_fact:
+   LegalNoticeText_cis="{{ LegalNoticeText_cis | replace ('\n', '') }}"
+  when: execute_2_3_7_4 == "YES"
+
+- name: "2.3.7.4 (L1) Conf 'Intrctve lgn: Msge txt for usrs attmptng to log on'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The LegalNoticeText setting (2.3.7.4)"
+   check_against: "{{ LegalNoticeText_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -name
+     "LegalNoticeText"|Select-Object -ExpandProperty "LegalNoticeText"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System
+    name: "LegalNoticeText"
+    data: "{{ LegalNoticeText_cis }}"
+    type: string
+  when: execute_2_3_7_4 == "YES"
+
+
+# =============================================================================
+# 2.3.7.5 (L1)
+# =============================================================================
+- name: "2.3.7.5 (L1) Conf 'Intrctve lgn: Msg ttle for usrs attmptng to log on'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The LegalNoticeCaption setting (2.3.7.5)"
+   check_against: "{{ LegalNoticeCaption_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -name
+     "LegalNoticeCaption"|Select-Object -ExpandProperty "LegalNoticeCaption"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System
+    name: "LegalNoticeCaption"
+    data: "{{ LegalNoticeCaption_cis }}"
+    type: string
+  when: execute_2_3_7_5 == "YES"
+
+
+# =============================================================================
+# 2.3.7.6 (L1)
+# =============================================================================
+- name: "2.3.7.6 (L2) Ensure '# of previous logons to cache' = < '4 logon(s)'"
+  include_tasks: win_check_less_than_equal_to.yml
+  vars:
+   title: "The CachedLogonsCount setting (2.3.7.6)"
+   check_against: "{{ CachedLogonsCount_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" -name
+     "CachedLogonsCount"|Select-Object -ExpandProperty "CachedLogonsCount"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon
+    name: "CachedLogonsCount"
+    data: "4"
+    type: dword
+  when: >
+    execute_2_3_7_6 == "YES" and
+    DomainR_out != "4" and
+    DomainR_out != "5"
+
+
+# =============================================================================
+# 2.3.7.7 (L1)
+# =============================================================================
+- name: "2.3.7.7 (L1) 'Prmpt usr to chnge pw bfre exprtion'='between 5-14 days'"
+  include_tasks: win_check_not_in.yml
+  vars:
+   title: "The PasswordExpiryWarning setting (2.3.7.7)"
+   check_against: "{{ PasswordExpiryWarning_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" -name
+     "PasswordExpiryWarning"|Select-Object
+     -ExpandProperty "PasswordExpiryWarning"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon
+    name: "PasswordExpiryWarning"
+    data: "14"
+    type: dword
+  when: execute_2_3_7_7 == "YES"
+
+
+# =============================================================================
+# 2.3.7.8 (L1)
+# =============================================================================
+- name: "2.3.7.8 (L1) 'Rqr Dmn Cntrllr Authntctn to unlck wrksttn'='Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The ForceUnlockLogon setting (2.3.7.8)"
+   check_against: "{{ ForceUnlockLogon_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" -name
+     "ForceUnlockLogon"|Select-Object -ExpandProperty "ForceUnlockLogon"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon
+    name: "ForceUnlockLogon"
+    data: "1"
+    type: dword
+  when: >
+    execute_2_3_7_8 == "YES" and
+    DomainR_out != "4" and
+    DomainR_out != "5"
+
+
+# =============================================================================
+# 2.3.7.9 (L1)
+# =============================================================================
+- name: "2.3.7.9 (L1) 'Smrt crd rmvl behavior' = 'Lock Workstation' or higher"
+  include_tasks: win_check.yml
+  vars:
+   title: "The ScRemoveOption setting (2.3.7.9)"
+   check_against: "{{ ScRemoveOption_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" -name
+     "ScRemoveOption"|Select-Object -ExpandProperty "ScRemoveOption"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon
+    name: "ScRemoveOption"
+    data: "1"
+    type: string
+  when: execute_2_3_7_9 == "YES"
+
+
+# ============================================================================
+# 2.3.8.1 (L1)
+# ============================================================================
+- name: "2.3.8.1 (L1) 'Mcrsft ntwrk clnt: Dgtlly sign cmmnctns(always)'='Enbld'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The RequireSecuritySignature setting (2.3.8.1)"
+   check_against: "{{ RequireSecuritySignature_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SYSTEM\CurrentControlSet\Services\LanmanWorkstation\Parameters"
+     -name "RequireSecuritySignature"|Select-Object
+     -ExpandProperty "RequireSecuritySignature"
+   win_regedit_cmd:
+    path: HKLM:\SYSTEM\CurrentControlSet\Services\LanmanWorkstation\Parameters
+    name: "RequireSecuritySignature"
+    data: "1"
+    type: dword
+  when: execute_2_3_8_1 == "YES"
+
+
+# =============================================================================
+# 2.3.8.2 (L1)
+# =============================================================================
+- name: "2.3.8.2 (L1) 'Mcrsft ntwrk clnt: Dgtlly sgn cmmnctns'='Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The EnableSecuritySignature setting (2.3.8.2)"
+   check_against: "{{ EnableSecuritySignature_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SYSTEM\CurrentControlSet\Services\LanmanWorkstation\Parameters"
+     -name "EnableSecuritySignature"|Select-Object
+     -ExpandProperty "EnableSecuritySignature"
+   win_regedit_cmd:
+    path: HKLM:\SYSTEM\CurrentControlSet\Services\LanmanWorkstation\Parameters
+    name: "EnableSecuritySignature"
+    data: "1"
+    type: dword
+  when: execute_2_3_8_2 == "YES"
+
+
+# =============================================================================
+# 2.3.8.3 (L1)
+# =============================================================================
+- name: "2.3.8.3 (L1) 'Ms ntw: Snd unncryptd pw to 3rd-party SMB srvrs'='Dsbld'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The EnablePlainTextPassword setting (2.3.8.3)"
+   check_against: "{{ EnablePlainTextPassword_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SYSTEM\CurrentControlSet\Services\LanmanWorkstation\Parameters"
+     -name "EnablePlainTextPassword"|Select-Object
+     -ExpandProperty "EnablePlainTextPassword"
+   win_regedit_cmd:
+    path: HKLM:\SYSTEM\CurrentControlSet\Services\LanmanWorkstation\Parameters
+    name: "EnablePlainTextPassword"
+    data: "0"
+    type: dword
+  when: execute_2_3_8_3 == "YES"
+
+
+# =============================================================================
+# 2.3.9.1 (L1)
+# =============================================================================
+- name: "2.3.9.1 (L1) 'Amt idle tme rqrd b4 sspndng sssn'=<'15 min(s),but nt 0'"
+  include_tasks: win_check_not_in.yml
+  vars:
+   title: "The AutoDisconnect setting (2.3.9.1)"
+   check_against: "{{ AutoDisconnect_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SYSTEM\CurrentControlSet\Services\LanManServer\Parameters" -name
+     "AutoDisconnect"|Select-Object -ExpandProperty "AutoDisconnect"
+   win_regedit_cmd:
+    path: HKLM:\SYSTEM\CurrentControlSet\Services\LanManServer\Parameters
+    name: "AutoDisconnect"
+    data: "15"
+    type: dword
+  when: execute_2_3_9_1 == "YES"
+
+
+# =============================================================================
+# 2.3.9.2 (L1)
+# =============================================================================
+- name: "2.3.9.2 (L1)'Mcrsft ntwrk srvr: Dgtlly sgn cmmnctns(always)'='Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The RequireSecuritySignature setting (2.3.9.2)"
+   check_against: "{{ RequireSecuritySignature2_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SYSTEM\CurrentControlSet\Services\LanManServer\Parameters"
+     -name "RequireSecuritySignature"|Select-Object
+     -ExpandProperty "RequireSecuritySignature"
+   win_regedit_cmd:
+    path: HKLM:\SYSTEM\CurrentControlSet\Services\LanManServer\Parameters
+    name: "RequireSecuritySignature"
+    data: "1"
+    type: dword
+  when: execute_2_3_9_2 == "YES"
+
+
+# =============================================================================
+# 2.3.9.3 (L1)
+# =============================================================================
+- name: "2.3.9.3 (L1)'Digitally sign communications (if clnt agrees)'='Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The EnableSecuritySignature setting (2.3.9.3)"
+   check_against: "{{ EnableSecuritySignature2_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SYSTEM\CurrentControlSet\Services\LanManServer\Parameters" -name
+     "EnableSecuritySignature"|Select-Object
+     -ExpandProperty "EnableSecuritySignature"
+   win_regedit_cmd:
+    path: HKLM:\SYSTEM\CurrentControlSet\Services\LanManServer\Parameters
+    name: "EnableSecuritySignature"
+    data: "1"
+    type: dword
+  when: execute_2_3_9_3 == "YES"
+
+
+# =============================================================================
+# 2.3.9.4 (L1)
+# =============================================================================
+- name: "2.3.9.4 (L1) Disconnect clients when logon hours expire' = 'Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The enableforcedlogoff setting (2.3.9.4)"
+   check_against: "{{ enableforcedlogoff_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SYSTEM\CurrentControlSet\Services\LanManServer\Parameters" -name
+     "enableforcedlogoff"|Select-Object -ExpandProperty "enableforcedlogoff"
+   win_regedit_cmd:
+    path: HKLM:\SYSTEM\CurrentControlSet\Services\LanManServer\Parameters
+    name: "enableforcedlogoff"
+    data: "1"
+    type: dword
+  when: execute_2_3_9_4 == "YES"
+
+
+# =============================================================================
+# 2.3.9.5 (L1)
+# =============================================================================
+- name: "2.3.9.5 (L1)Svr SPN trgt nme vldtn lvl='Acpt if prvdd by clnt' or hghr"
+  include_tasks: win_check.yml
+  vars:
+   title: "The SMBServerNameHardeningLevel setting (2.3.9.5)"
+   check_against: "{{ SMBServerNameHardeningLevel_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SYSTEM\CurrentControlSet\Services\LanManServer\Parameters" -name
+     "SMBServerNameHardeningLevel"|Select-Object
+     -ExpandProperty "SMBServerNameHardeningLevel"
+   win_regedit_cmd:
+    path: HKLM:\SYSTEM\CurrentControlSet\Services\LanManServer\Parameters
+    name: "SMBServerNameHardeningLevel"
+    data: "1"
+    type: dword
+  when: >
+    execute_2_3_9_5 == "YES" and
+    DomainR_out != "4" and
+    DomainR_out != "5"
+
+
+# =============================================================================
+# 2.3.10.2 (L1)
+# =============================================================================
+- name: "2.3.10.2 (L1) 'Do not allw annyms enmrtn of SAM accounts'='Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The RestrictAnonymousSAM setting (2.3.10.2)"
+   check_against: "{{ RestrictAnonymousSAM_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -name
+     "RestrictAnonymousSAM"|Select-Object
+     -ExpandProperty "RestrictAnonymousSAM"
+   win_regedit_cmd:
+    path: HKLM:\SYSTEM\CurrentControlSet\Control\Lsa
+    name: "RestrictAnonymousSAM"
+    data: "1"
+    type: dword
+  when: >
+    execute_2_3_10_2 == "YES" and
+    DomainR_out != "4" and
+    DomainR_out != "5"
+
+
+# =============================================================================
+# 2.3.10.3 (L1)
+# =============================================================================
+- name: "2.3.10.3 (L1)'Don't allw annyms enmrtn of SAM accnts & shrs'='Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The RestrictAnonymous setting (2.3.10.3)"
+   check_against: "{{ RestrictAnonymous_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -name
+     "RestrictAnonymous"|Select-Object -ExpandProperty "RestrictAnonymous"
+   win_regedit_cmd:
+    path: HKLM:\SYSTEM\CurrentControlSet\Control\Lsa
+    name: "RestrictAnonymous"
+    data: "1"
+    type: dword
+  when: >
+    execute_2_3_10_3 == "YES" and
+    DomainR_out != "4" and
+    DomainR_out != "5"
+
+
+# =============================================================================
+# 2.3.10.4 (L1)
+# =============================================================================
+- name: "2.3.10.4 (L2)'Don't allw strge of PWs & crdntls fr ntwrk auth'='Enbld'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The DisableDomainCreds setting (2.3.10.4)"
+   check_against: "{{ DisableDomainCreds_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -name
+     "DisableDomainCreds"|Select-Object -ExpandProperty "DisableDomainCreds"
+   win_regedit_cmd:
+    path: HKLM:\SYSTEM\CurrentControlSet\Control\Lsa
+    name: "DisableDomainCreds"
+    data: "1"
+    type: dword
+  when: execute_2_3_10_4 == "YES"
+
+
+# ============================================================================
+# 2.3.10.5 (L1)
+# ============================================================================
+- name: "2.3.10.5 (L1) 'Let Evryn prmssns apply to anonyms usrs'='Disabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The EveryoneIncludesAnonymous setting (2.3.10.5)"
+   check_against: "{{ EveryoneIncludesAnonymous_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -name
+     "EveryoneIncludesAnonymous"|Select-Object
+     -ExpandProperty "EveryoneIncludesAnonymous"
+   win_regedit_cmd:
+    path: HKLM:\SYSTEM\CurrentControlSet\Control\Lsa
+    name: "EveryoneIncludesAnonymous"
+    data: "0"
+    type: dword
+  when: execute_2_3_10_5 == "YES"
+
+
+# ============================================================================
+# 2.3.10.6 (L1)
+# ============================================================================
+- name: "2.3.10.6 (L1) 'Named Pipes that can be accessed anonymously'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The NullSessionPipes setting (2.3.10.6)"
+   check_against: "{{ NullSessionPipes_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SYSTEM\CurrentControlSet\Services\LanManServer\Parameters" -name
+     "NullSessionPipes"|Select-Object -ExpandProperty "NullSessionPipes"
+   win_regedit_cmd:
+    path: HKLM:\SYSTEM\CurrentControlSet\Services\LanManServer\Parameters
+    name: "NullSessionPipes"
+    data: ""
+    type: multistring
+  when: >
+    execute_2_3_10_6 == "YES" and
+    (DomainR_out != "4" or DomainR_out != "5")
+
+
+# ============================================================================
+- name: "2.3.10.6 (L1) 'Named Pipes that can be accessed anonymously'-DC SECTN:"
+  include_tasks: win_check_for_DCs.yml
+  vars:
+   title: "The NullSessionPipes setting (2.3.10.6)"
+   check_against: "{{ NullSessionPipes2_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SYSTEM\CurrentControlSet\Services\LanManServer\Parameters" -name
+     "NullSessionPipes"|Select-Object -ExpandProperty "NullSessionPipes"
+   win_regedit_cmd:
+    path: HKLM:\SYSTEM\CurrentControlSet\Services\LanManServer\Parameters
+    name: "NullSessionPipes"
+    data: "netlogon, samr, lsarpc"
+    type: multistring
+  when: execute_2_3_10_6 == "YES" and (DomainR_out == "4" or DomainR_out == "5")
+
+
+# ============================================================================
+# 2.3.10.7 (L1)
+# ============================================================================
+- name: "2.3.10.7 (L1) Config 'Ntwrk accss: Rmtly accessible registry paths'"
+  win_shell: >
+    Get-ItemProperty -path
+    "HKLM:\SYSTEM\CurrentControlSet\Control\SecurePipeServers\Winreg\AllowedExactPaths"
+    -name "Machine"|Select-Object -ExpandProperty "Machine"
+  register: Machine2_out
+  ignore_errors: true
+  when: execute_2_3_10_7 == "YES"
+
+- name: "set output variable"
+  set_fact:
+   Machine2_out="{{ Machine2_out.stdout_lines|list|join }}"
+  when: execute_2_3_10_7 == "YES"
+
+- block:
+   - debug:
+      msg:
+       - "The FQDN hostname is.............{{ FQDN_hostname }}"
+       - "The default_ipv4_address is......{{ default_ipv4_address }}"
+       - ""
+       - "The Machine setting (2.3.10.7) is Non-Compliant:"
+       - "{{ Machine2_out }}"
+       - "The registry output values should match the following variables..."
+       - "Machine2_cis1 through Machine2_cis3"
+  when: >
+    execute_2_3_10_7 == "YES" and
+    (Machine2_cis1 not in Machine2_out or
+    Machine2_cis2 not in Machine2_out or
+    Machine2_cis3 not in Machine2_out)
+
+- block:
+   - debug:
+      msg:
+       - "The FQDN hostname is.............{{ FQDN_hostname }}"
+       - "The default_ipv4_address is......{{ default_ipv4_address }}"
+       - ""
+       - "The Machine setting (2.3.10.7) is Compliant:"
+       - "{{ Machine2_out }}"
+       - "The registry output values match the following variables..."
+       - "Machine2_cis1 through Machine2_cis3"
+  when: >
+    execute_2_3_10_7 == "YES" and
+    Machine2_cis1 in Machine2_out and
+    Machine2_cis2 in Machine2_out and
+    Machine2_cis3 in Machine2_out
+
+- name: "Check the registry line count and ensure its equal to 3"
+  win_shell: >
+    Get-ItemProperty -path
+    "HKLM:\SYSTEM\CurrentControlSet\Control\SecurePipeServers\Winreg\AllowedExactPaths"
+    -name "Machine"|Select-Object
+    -ExpandProperty "Machine"  | Measure-Object -Line |
+    select lines -expandproperty lines
+  register: Machine2RegLineCount_o
+  when: execute_2_3_10_7 == "YES"
+
+- name: "set output variable"
+  set_fact:
+   Machine2RegLineCount_o="{{ Machine2RegLineCount_o.stdout_lines|list|join }}"
+  when: execute_2_3_10_7 == "YES"
+
+- block:
+   - debug:
+      msg:
+       - "The current registry line count value is (2.3.10.7):"
+       - "{{ Machine2RegLineCount_o }}"
+  when: execute_2_3_10_7 == "YES"
+
+
+- name: "2.3.10.7 (L1) Cnfgre Ntwrk access: Remotely accessible registry paths"
+  win_shell: >
+    $b=@("System\CurrentControlSet\Control\ProductOptions","System\CurrentControlSet\Control\Server
+    Applications","Software\Microsoft\Windows NT\CurrentVersion");
+    New-ItemProperty -Path
+    "hklm:\SYSTEM\CurrentControlSet\Control\SecurePipeServers\Winreg\AllowedExactPaths"
+    -PropertyType MultiString -Name Machine -Value $b -force
+  when: >
+    remediate == "YES" and
+    execute_2_3_10_7 == "YES" and
+    (Machine2_cis1 not in Machine2_out or
+    Machine2_cis2 not in Machine2_out or
+    Machine2_cis3 not in Machine2_out or
+    Machine2RegLineCount_o|int != 3)
+
+# *****************************************************************************
+
+- name: "2.3.10.7 (L1) -Execute if remediate=YES & setting is NON-Compliant."
+  win_shell: >
+    Get-ItemProperty -path
+    "HKLM:\SYSTEM\CurrentControlSet\Control\SecurePipeServers\Winreg\AllowedExactPaths"
+    -name "Machine"|Select-Object -ExpandProperty "Machine"
+  register: Machine2_after_out
+  ignore_errors: true
+  when: >
+    remediate == "YES" and
+    execute_2_3_10_7 == "YES" and
+    (Machine2_cis1 not in Machine2_out or
+    Machine2_cis2 not in Machine2_out or
+    Machine2_cis3 not in Machine2_out or
+    Machine2RegLineCount_o|int != 3)
+
+- name: "set output variable"
+  set_fact:
+   Machine2_after_out2="{{ Machine2_after_out.stdout_lines|list|join }}"
+  when: Machine2_after_out is not skipped
+
+- block:
+   - debug:
+      msg:
+       - "The FQDN hostname is.............{{ FQDN_hostname }}"
+       - "The default_ipv4_address is......{{ default_ipv4_address }}"
+       - ""
+       - "Recheck: The Machine setting (2.3.10.7) is Non-Compliant:"
+       - "{{ Machine2_after_out2 }}"
+       - "The registry output values should match the following variables..."
+       - "Machine2_cis1 through Machine2_cis3"
+  when: >
+    Machine2_after_out.changed and (Machine2_cis1 not in
+    Machine2_after_out2 or Machine2_cis2 not in
+    Machine2_after_out2 or Machine2_cis3 not in Machine2_after_out2)
+
+- block:
+   - debug:
+      msg:
+       - "The FQDN hostname is.............{{ FQDN_hostname }}"
+       - "The default_ipv4_address is......{{ default_ipv4_address }}"
+       - ""
+       - "Recheck: The Machine setting (2.3.10.7) is Compliant:"
+       - "{{ Machine2_after_out2 }}"
+       - "The registry output values match the following variables..."
+       - "Machine2_cis1 through Machine2_cis3"
+  when: >
+    Machine2_after_out.changed and Machine2_cis1 in
+    Machine2_after_out2 and Machine2_cis2 in
+    Machine2_after_out2 and Machine2_cis3 in Machine2_after_out2
+
+
+# ============================================================================
+# 2.3.10.8 (L1)
+# ============================================================================
+- name: "2.3.10.8 (L1) Cnfgre 'Ntwrk accss: Rmtly accssble reg pths & sub-pths'"
+  win_shell: >
+    Get-ItemProperty -path
+    "HKLM:\SYSTEM\CurrentControlSet\Control\SecurePipeServers\Winreg\AllowedPaths"
+    -name "Machine"|Select-Object -ExpandProperty "Machine"
+  register: Machine_out
+  ignore_errors: true
+  when: execute_2_3_10_8 == "YES"
+
+- name: "set output variable"
+  set_fact:
+   Machine_out="{{ Machine_out.stdout_lines|list|join }}"
+  when: execute_2_3_10_8 == "YES"
+
+- block:
+   - debug:
+      msg:
+       - "The FQDN hostname is.............{{ FQDN_hostname }}"
+       - "The default_ipv4_address is......{{ default_ipv4_address }}"
+       - ""
+       - "The Machine setting (2.3.10.8) is Non-Compliant:"
+       - "{{ Machine_out }}"
+       - "The registry output values should match the following variables..."
+       - "Machine_cis1 through Machine_cis11"
+  when: >
+    execute_2_3_10_8 == "YES" and
+    (Machine_cis1 not in Machine_out or
+    Machine_cis2 not in Machine_out or
+    Machine_cis3 not in Machine_out or
+    Machine_cis4 not in Machine_out or
+    Machine_cis5 not in Machine_out or
+    Machine_cis6 not in Machine_out or
+    Machine_cis7 not in Machine_out or
+    Machine_cis8 not in Machine_out or
+    Machine_cis9 not in Machine_out or
+    Machine_cis10 not in Machine_out or
+    Machine_cis11 not in Machine_out)
+
+- block:
+   - debug:
+      msg:
+       - "The FQDN hostname is.............{{ FQDN_hostname }}"
+       - "The default_ipv4_address is......{{ default_ipv4_address }}"
+       - ""
+       - "The Machine setting (2.3.10.8) is Compliant:'{{ Machine_out }}"
+       - "The registry output values match the following variables..."
+       - "Machine_cis1 through Machine_cis11"
+  when: >
+    execute_2_3_10_8 == "YES" and
+    Machine_cis1 in Machine_out and
+    Machine_cis2 in Machine_out and
+    Machine_cis3 in Machine_out and
+    Machine_cis4 in Machine_out and
+    Machine_cis5 in Machine_out and
+    Machine_cis6 in Machine_out and
+    Machine_cis7 in Machine_out and
+    Machine_cis8 in Machine_out and
+    Machine_cis9 in Machine_out and
+    Machine_cis10 in Machine_out and
+    Machine_cis11 in Machine_out
+
+- name: "Check the registry line count and ensure its equal to 3"
+  win_shell: >
+    Get-ItemProperty -path
+    "HKLM:\SYSTEM\CurrentControlSet\Control\SecurePipeServers\Winreg\AllowedPaths"
+    -name "Machine"|Select-Object -ExpandProperty "Machine"  |
+    Measure-Object -Line | select lines -expandproperty lines
+  register: MachineRegLineCnt_o
+  when: execute_2_3_10_8 == "YES"
+
+- name: "set output variable"
+  set_fact:
+   MachineRegLineCnt_o="{{ MachineRegLineCnt_o.stdout_lines|list|join }}"
+  when: execute_2_3_10_8 == "YES"
+
+- block:
+   - debug:
+      msg:
+       - "The current registry line count value is (2.3.10.8):"
+       - "{{ MachineRegLineCnt_o }}"
+  when: execute_2_3_10_8 == "YES"
+
+- name: "2.3.10.8 (L1) Cnfgr 'Ntwrk accss: Rmtly accssble reg paths & sub-pths'"
+  win_shell: >
+    $a=@("System\CurrentControlSet\Control\Print\Printers",
+    "System\CurrentControlSet\Services\Eventlog",
+    "Software\Microsoft\OLAP Server",
+    "Software\Microsoft\Windows NT\CurrentVersion\Print",
+    "Software\Microsoft\Windows NT\CurrentVersion\Windows",
+    "System\CurrentControlSet\Control\ContentIndex",
+    "System\CurrentControlSet\Control\Terminal Server",
+    "System\CurrentControlSet\Control\Terminal Server\UserConfig",
+    "System\CurrentControlSet\Control\Terminal Server\DefaultUserConfiguration",
+    "Software\Microsoft\Windows NT\CurrentVersion\Perflib",
+    "System\CurrentControlSet\Services\SysmonLog");
+    New-ItemProperty -Path
+    "hklm:\SYSTEM\CurrentControlSet\Control\SecurePipeServers\Winreg\AllowedPaths"
+    -PropertyType MultiString -Name Machine -Value $a -force
+  when: >
+    remediate == "YES" and
+    execute_2_3_10_8 == "YES" and
+    (Machine_cis1 not in Machine_out or
+    Machine_cis2 not in Machine_out or
+    Machine_cis3 not in Machine_out or
+    Machine_cis4 not in Machine_out or
+    Machine_cis5 not in Machine_out or
+    Machine_cis6 not in Machine_out or
+    Machine_cis7 not in Machine_out or
+    Machine_cis8 not in Machine_out or
+    Machine_cis9 not in Machine_out or
+    Machine_cis10 not in Machine_out or
+    Machine_cis11 not in Machine_out or
+    MachineRegLineCnt_o|int != 11)
+
+# *****************************************************************************
+
+- name: "2.3.10.8 (L1) -Execute if remediate=YES & setting is NON-Compliant."
+  win_shell: >
+    Get-ItemProperty -path
+    "HKLM:\SYSTEM\CurrentControlSet\Control\SecurePipeServers\Winreg\AllowedPaths"
+    -name "Machine"|Select-Object -ExpandProperty "Machine"
+  register: Machine_after_out
+  ignore_errors: true
+  when: >
+    remediate == "YES" and
+    execute_2_3_10_8 == "YES" and
+    (Machine_cis1 not in Machine_out or
+    Machine_cis2 not in Machine_out or
+    Machine_cis3 not in Machine_out or
+    Machine_cis4 not in Machine_out or
+    Machine_cis5 not in Machine_out or
+    Machine_cis6 not in Machine_out or
+    Machine_cis7 not in Machine_out or
+    Machine_cis8 not in Machine_out or
+    Machine_cis9 not in Machine_out or
+    Machine_cis10 not in Machine_out or
+    Machine_cis11 not in Machine_out or
+    MachineRegLineCnt_o|int != 11)
+
+- name: "set output variable"
+  set_fact:
+   Machine_after_out2="{{ Machine_after_out.stdout_lines|list|join }}"
+  when: Machine_after_out is not skipped
+
+- block:
+   - debug:
+      msg:
+       - "The FQDN hostname is.............{{ FQDN_hostname }}"
+       - "The default_ipv4_address is......{{ default_ipv4_address }}"
+       - ""
+       - "Recheck: The Machine setting (2.3.10.8) is Non-Compliant:"
+       - "{{ Machine_after_out2 }}"
+       - "The registry output values should match the following variables..."
+       - "Machine_cis1 through Machine_cis11"
+  when: >
+    Machine_after_out.changed and (Machine_cis1 not in
+    Machine_after_out2 or Machine_cis2 not in Machine_after_out2 or
+    Machine_cis3 not in Machine_after_out2 or Machine_cis4 not in
+    Machine_after_out2 or Machine_cis5 not in Machine_after_out2 or
+    Machine_cis6 not in Machine_after_out2 or Machine_cis7 not in
+    Machine_after_out2 or Machine_cis8 not in Machine_after_out2 or
+    Machine_cis9 not in Machine_after_out2 or Machine_cis10 not in
+    Machine_after_out2 or Machine_cis11 not in Machine_after_out2)
+
+- block:
+   - debug:
+      msg:
+       - "The FQDN hostname is.............{{ FQDN_hostname }}"
+       - "The default_ipv4_address is......{{ default_ipv4_address }}"
+       - ""
+       - "Recheck: The Machine setting (2.3.10.8) is Compliant:"
+       - "{{ Machine_after_out2 }}"
+       - "The registry output values match the following variables..."
+       - "Machine_cis1 through Machine_cis11"
+  when: >
+    Machine_after_out.changed and
+    Machine_cis1 in Machine_after_out2 and
+    Machine_cis2 in Machine_after_out2 and
+    Machine_cis3 in Machine_after_out2 and
+    Machine_cis4 in Machine_after_out2 and
+    Machine_cis5 in Machine_after_out2 and
+    Machine_cis6 in Machine_after_out2 and
+    Machine_cis7 in Machine_after_out2 and
+    Machine_cis8 in Machine_after_out2 and
+    Machine_cis9 in Machine_after_out2 and
+    Machine_cis10 in Machine_after_out2 and
+    Machine_cis11 in Machine_after_out2
+
+
+# =============================================================================
+# 2.3.10.9 (L1)
+# =============================================================================
+- name: "2.3.10.9 (L1)'Ntwrk accss:Rstrct annyms accss Nmd Pps & Shrs'='Enbld'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The RestrictNullSessAccess setting (2.3.10.9)"
+   check_against: "{{ RestrictNullSessAccess_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -name
+     "RestrictNullSessAccess"|Select-Object
+     -ExpandProperty "RestrictNullSessAccess"
+   win_regedit_cmd:
+    path: HKLM:\SYSTEM\CurrentControlSet\Control\Lsa
+    name: "RestrictNullSessAccess"
+    data: "0"
+    type: dword
+  when: execute_2_3_10_9 == "YES"
+
+
+# =============================================================================
+# 2.3.10.10 (L1)
+# =============================================================================
+- name: "2.3.10.10 (L1) 'Restrict clients...SAM'='Admins: Remote Access: Allow'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The RestrictRemoteSAM setting (2.3.10.10)"
+   check_against: "{{ RestrictRemoteSAM_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -name
+     "RestrictRemoteSAM"|Select-Object -ExpandProperty "RestrictRemoteSAM"
+   win_regedit_cmd:
+    path: HKLM:\SYSTEM\CurrentControlSet\Control\Lsa
+    name: "RestrictRemoteSAM"
+    data: "O:BAG:BAD:(A;;RC;;;BA)"
+    type: string
+  when: >
+    execute_2_3_10_10 == "YES" and
+    DomainR_out != "4" and
+    DomainR_out != "5"
+
+
+# =============================================================================
+# 2.3.10.11 (L1)
+# =============================================================================
+- name: "2.3.10.11 (L1)'Shrng & sec model lcl accnts'='Classic-lcl usrs auth'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The NullSessionShares setting (2.3.10.11)"
+   check_against: "{{ NullSessionShares_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\System\CurrentControlSet\Services\LanManServer\Parameters" -name
+     "NullSessionShares"|Select-Object -ExpandProperty "NullSessionShares"
+   win_regedit_cmd:
+    path: HKLM:\System\CurrentControlSet\Services\LanManServer\Parameters
+    name: "NullSessionShares"
+    data:
+    type: multistring
+  when: execute_2_3_10_11 == "YES"
+
+
+# =============================================================================
+# 2.3.10.12 (L1)
+# =============================================================================
+- name: "2.3.10.12 (L1) 'Shrng & sec model fr lcl accnts' = 'Classic'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The ForceGuest setting (2.3.10.12)"
+   check_against: "{{ ForceGuest_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\System\CurrentControlSet\Control\Lsa" -name
+     "ForceGuest"|Select-Object -ExpandProperty "ForceGuest"
+   win_regedit_cmd:
+    path: HKLM:\System\CurrentControlSet\Control\Lsa
+    name: "ForceGuest"
+    data: "0"
+    type: dword
+  when: execute_2_3_10_12 == "YES"
+
+
+# =============================================================================
+# 2.3.11.1 (L1)
+# =============================================================================
+- name: "2.3.11.1 (L1) 'Allw Lcl Systm to use cmptr idntity for NTLM'='Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The UseMachineId setting (2.3.11.1)"
+   check_against: "{{ UseMachineId_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -name
+     "UseMachineId"|Select-Object -ExpandProperty "UseMachineId"
+   win_regedit_cmd:
+    path: HKLM:\SYSTEM\CurrentControlSet\Control\Lsa
+    name: "UseMachineId"
+    data: "1"
+    type: dword
+  when: execute_2_3_11_1 == "YES"
+
+
+# =============================================================================
+# 2.3.11.2 (L1)
+# =============================================================================
+- name: "2.3.11.2 (L1) Allow LocalSystem NULL session fallback' = 'Disabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The RestrictAnonymous setting (2.3.11.2)"
+   check_against: "{{ RestrictAnonymous2_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -name
+     "RestrictAnonymous"|Select-Object -ExpandProperty "RestrictAnonymous"
+   win_regedit_cmd:
+    path: HKLM:\SYSTEM\CurrentControlSet\Control\Lsa
+    name: "RestrictAnonymous"
+    data: "1"
+    type: dword
+  when: execute_2_3_11_2 == "YES"
+
+
+# =============================================================================
+# 2.3.11.3 (L1)
+# =============================================================================
+- name: "2.3.11.3 (L1) 'Allw PKU2U auth rqsts to use online idntts'='Disabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The AllowOnlineID setting (2.3.11.3)"
+   check_against: "{{ AllowOnlineID_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\pku2u" -name
+     "AllowOnlineID"|Select-Object -ExpandProperty "AllowOnlineID"
+   win_regedit_cmd:
+    path: HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\pku2u
+    name: "AllowOnlineID"
+    data: "1"
+    type: dword
+  when: execute_2_3_11_3 == "YES"
+
+
+# ============================================================================
+# 2.3.11.4 (L1)
+# ============================================================================
+- name: "2.3.11.4 (L1)'Config...Kerberos'='AES128_HMAC_SHA1, AES256_HMAC_SHA1,'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The SupportedEncryptionTypes setting (2.3.11.4)"
+   check_against: "{{ SupportedEncryptionTypes_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\Kerberos\Parameters"
+     -name "SupportedEncryptionTypes"|Select-Object
+     -ExpandProperty "SupportedEncryptionTypes"
+   win_regedit_cmd:
+    path: "{{ policy_reg }}System\\Kerberos\\Parameters"
+    name: "SupportedEncryptionTypes"
+    data: "2147483640"
+    type: dword
+  when: execute_2_3_11_4 == "YES"
+
+
+# =============================================================================
+# 2.3.11.5 (L1)
+# =============================================================================
+- name: "2.3.11.5 (L1)'Don't stre LAN Mngr hsh value on nxt pw chnge'='Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The NoLMHash setting (2.3.11.5)"
+   check_against: "{{ NoLMHash_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -name
+     "NoLMHash"|Select-Object -ExpandProperty "NoLMHash"
+   win_regedit_cmd:
+    path: HKLM:\SYSTEM\CurrentControlSet\Control\Lsa
+    name: "NoLMHash"
+    data: "1"
+    type: dword
+  when: execute_2_3_11_5 == "YES"
+
+
+# =============================================================================
+# 2.3.11.6 (L1)
+# =============================================================================
+- name: "2.3.11.6 (L1) 'Force logoff when logon hours expire'='Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The EnableForcedLogoff setting (2.3.11.6)"
+   check_against: "{{ EnableForcedLogoff_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\System\CurrentControlSet\Services\LanManServer\Parameters" -name
+     "EnableForcedLogoff"|Select-Object -ExpandProperty "EnableForcedLogoff"
+   win_regedit_cmd:
+    path: HKLM:\System\CurrentControlSet\Services\LanManServer\Parameters
+    name: "EnableForcedLogoff"
+    data: "1"
+    type: dword
+  when: execute_2_3_11_6 == "YES"
+
+
+# =============================================================================
+# 2.3.11.7 (L1)
+# =============================================================================
+- name: "2.3.11.7 (L1)'LAN Mgr auth lvl'='Snd NTLMv2 rspns only. Rfs LM & NTLM'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The LmCompatibilityLevel setting (2.3.11.7)"
+   check_against: "{{ LmCompatibilityLevel_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -name
+     "LmCompatibilityLevel"|Select-Object -ExpandProperty "LmCompatibilityLevel"
+   win_regedit_cmd:
+    path: HKLM:\SYSTEM\CurrentControlSet\Control\Lsa
+    name: "LmCompatibilityLevel"
+    data: "5"
+    type: dword
+  when: execute_2_3_11_7 == "YES"
+
+
+# =============================================================================
+# 2.3.11.8 (L1)
+# =============================================================================
+- name: "2.3.11.8 (L1) 'LDAP clnt sgnng rqrmnts'='Negotiate signing' or higher"
+  include_tasks: win_check.yml
+  vars:
+   title: "The LDAPClientIntegrity setting (2.3.11.8)"
+   check_against: "{{ LDAPClientIntegrity_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SYSTEM\CurrentControlSet\Services\LDAP" -name
+     "LDAPClientIntegrity"|Select-Object -ExpandProperty "LDAPClientIntegrity"
+   win_regedit_cmd:
+    path: HKLM:\SYSTEM\CurrentControlSet\Services\LDAP
+    name: "LDAPClientIntegrity"
+    data: "1"
+    type: dword
+  when: execute_2_3_11_8 == "YES"
+
+
+# =============================================================================
+# 2.3.11.9 (L1)
+# =============================================================================
+- name: "2.3.11.9 (L1) Min sssn sec fr NTLM SSP bsd clnts='Req NTLMv2 sssn sec'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The NTLMMinClientSec setting (2.3.11.9)"
+   check_against: "{{ NTLMMinClientSec_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\MSV1_0" -name
+     "NTLMMinClientSec"|Select-Object -ExpandProperty "NTLMMinClientSec"
+   win_regedit_cmd:
+    path: HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\MSV1_0
+    name: "NTLMMinClientSec"
+    data: "537395200"
+    type: dword
+  when: execute_2_3_11_9 == "YES"
+
+
+# =============================================================================
+# 2.3.11.10 (L1)
+# =============================================================================
+- name: "2.3.11.10 (L1)Min sssn sec fr NTLM SSP bsd srvrs='Rqr NTLMv2 sssn sec'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The NTLMMinServerSec setting (2.3.11.10)"
+   check_against: "{{ NTLMMinServerSec_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\MSV1_0" -name
+     "NTLMMinServerSec"|Select-Object -ExpandProperty "NTLMMinServerSec"
+   win_regedit_cmd:
+    path: HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\MSV1_0
+    name: "NTLMMinServerSec"
+    data: "537395200"
+    type: dword
+  when: execute_2_3_11_10 == "YES"
+
+
+# =============================================================================
+# 2.3.13.1 (L1)
+# =============================================================================
+- name: "2.3.13.1 (L1) 'Allw systm to be sht dwn wtht hvng to lg on'='Disabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The ShutdownWithoutLogon setting (2.3.13.1)"
+   check_against: "{{ ShutdownWithoutLogon_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
+     -name "ShutdownWithoutLogon"|Select-Object
+     -ExpandProperty "ShutdownWithoutLogon"
+   win_regedit_cmd:
+    path: "{{ policy_reg }}System"
+    name: "ShutdownWithoutLogon"
+    data: "1"
+    type: dword
+  when: execute_2_3_13_1 == "YES"
+
+
+# =============================================================================
+# 2.3.15.1 (L1)
+# =============================================================================
+- name: "2.3.15.1 (L1) 'Rqr case insnstvty fr non-Windows subsystems'='Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The ObCaseInsensitive setting (2.3.15.1)"
+   check_against: "{{ ObCaseInsensitive_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Kernel" -name
+     "ObCaseInsensitive"|Select-Object -ExpandProperty "ObCaseInsensitive"
+   win_regedit_cmd:
+    path: HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Kernel
+    name: "ObCaseInsensitive"
+    data: "1"
+    type: dword
+  when: execute_2_3_15_1 == "YES"
+
+
+# =============================================================================
+# 2.3.15.2 (L1)
+# =============================================================================
+- name: "2.3.15.2 (L1) 'Strngthn dflt prmssns of intrnl systm objcts'='Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The ProtectionMode setting (2.3.15.2)"
+   check_against: "{{ ProtectionMode_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\System\CurrentControlSet\Control\Session Manager" -name
+     "ProtectionMode"|Select-Object -ExpandProperty "ProtectionMode"
+   win_regedit_cmd:
+    path: 'HKLM:\System\CurrentControlSet\Control\Session Manager'
+    name: "ProtectionMode"
+    data: "1"
+    type: dword
+  when: execute_2_3_15_2 == "YES"
+
+
+# =============================================================================
+# 2.3.17.1 (L1)
+# =============================================================================
+- name: "2.3.17.1 (L1) 'Admin Apprvl Mode for Built-in Admin accnt'='Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The FilterAdministratorToken setting (2.3.17.1)"
+   check_against: "{{ FilterAdministratorToken_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -name
+     "FilterAdministratorToken"|Select-Object
+     -ExpandProperty "FilterAdministratorToken"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System
+    name: "FilterAdministratorToken"
+    data: "1"
+    type: dword
+  when: execute_2_3_17_1 == "YES"
+
+
+# =============================================================================
+# 2.3.17.2 (L1)
+# =============================================================================
+- name: "2.3.17.2 (L1) 'Allw UIAccss apps...elvtn wtht usng scre dsktp'='Dsbld'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The EnableUIADesktopToggle setting (2.3.17.2)"
+   check_against: "{{ EnableUIADesktopToggle_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -name
+     "EnableUIADesktopToggle"|Select-Object
+     -ExpandProperty "EnableUIADesktopToggle"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System
+    name: "EnableUIADesktopToggle"
+    data: "0"
+    type: dword
+  when: execute_2_3_17_2 == "YES"
+
+
+# =============================================================================
+# 2.3.17.3 (L1)
+# =============================================================================
+- name: "2.3.17.3 (L1) 'Bhvr...Admn Apprvl Mde'='Prompt fr cnsnt scr desktop'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The ConsentPromptBehaviorAdmin setting (2.3.17.3)"
+   check_against: "{{ ConsentPromptBehaviorAdmin_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -name
+     "ConsentPromptBehaviorAdmin"|Select-Object
+     -ExpandProperty "ConsentPromptBehaviorAdmin"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System
+    name: "ConsentPromptBehaviorAdmin"
+    data: "2"
+    type: dword
+  when: execute_2_3_17_3 == "YES"
+
+
+# =============================================================================
+# 2.3.17.4 (L1)
+# =============================================================================
+- name: "2.3.17.4 (L1)'Bhvr elvtn prmpt fr stndrd usrs'='Auto deny elvtn rqsts'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The ConsentPromptBehaviorUser setting (2.3.17.4)"
+   check_against: "{{ ConsentPromptBehaviorUser_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -name
+     "ConsentPromptBehaviorUser"|Select-Object
+     -ExpandProperty "ConsentPromptBehaviorUser"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System
+    name: "ConsentPromptBehaviorUser"
+    data: "0"
+    type: dword
+  when: execute_2_3_17_4 == "YES"
+
+
+# =============================================================================
+# 2.3.17.5 (L1)
+# =============================================================================
+- name: "2.3.17.5 (L1) 'Detect app instlltns & prompt for elevation'='Enabled'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The EnableInstallerDetection setting (2.3.17.5)"
+   check_against: "{{ EnableInstallerDetection_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -name
+     "EnableInstallerDetection"|Select-Object
+     -ExpandProperty "EnableInstallerDetection"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System
+    name: "EnableInstallerDetection"
+    data: "1"
+    type: dword
+  when: execute_2_3_17_5 == "YES"
+
+
+# =============================================================================
+# 2.3.17.6 (L1)
+# =============================================================================
+- name: "2.3.17.6 (L1) 'Only elvte UIAccess apps instlld in secre locs'='Enbld'"
+  include_tasks: win_check.yml
+  vars:
+   title: "The EnableSecureUIAPaths setting (2.3.17.6)"
+   check_against: "{{ EnableSecureUIAPaths_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -name
+     "EnableSecureUIAPaths"|Select-Object -ExpandProperty "EnableSecureUIAPaths"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System
+    name: "EnableSecureUIAPaths"
+    data: "1"
+    type: dword
+  when: execute_2_3_17_6 == "YES"
+
+
+# =============================================================================
+# 2.3.17.7 (L1)
+# =============================================================================
+- name: "2.3.17.7 (L1) Usr Acct Cntrl:Run all admins in Admin Aprvl Mode=Enbld"
+  include_tasks: win_check.yml
+  vars:
+   title: "The EnableLUA setting (2.3.17.7)"
+   check_against: "{{ EnableLUA_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -name
+     "EnableLUA"|Select-Object -ExpandProperty "EnableLUA"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System
+    name: "EnableLUA"
+    data: "1"
+    type: dword
+  when: execute_2_3_17_7 == "YES"
+
+
+# =============================================================================
+# 2.3.17.8 (L1)
+# =============================================================================
+- name: "2.3.17.8 (L1) Usr Act Cntrl:Swtch secre dsktp whn prmptng elvtn=Enbld"
+  include_tasks: win_check.yml
+  vars:
+   title: "The PromptOnSecureDesktop setting (2.3.17.8)"
+   check_against: "{{ PromptOnSecureDesktop_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -name
+     "PromptOnSecureDesktop"|Select-Object
+     -ExpandProperty "PromptOnSecureDesktop"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System
+    name: "PromptOnSecureDesktop"
+    data: "1"
+    type: dword
+  when: execute_2_3_17_8 == "YES"
+
+
+# =============================================================================
+# 2.3.17.9 (L1)
+# =============================================================================
+- name: "2.3.17.9 (L1) Vrtlze file & regstry wrte flrs to per-user locs=Enbld"
+  include_tasks: win_check.yml
+  vars:
+   title: "The EnableVirtualization setting (2.3.17.9)"
+   check_against: "{{ EnableVirtualization_cis }}"
+   win_shell_cmd: >
+     Get-ItemProperty -path
+     "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -name
+     "EnableVirtualization"|Select-Object -ExpandProperty "EnableVirtualization"
+   win_regedit_cmd:
+    path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System
+    name: "EnableVirtualization"
+    data: "1"
+    type: dword
+  when: execute_2_3_17_9 == "YES"
