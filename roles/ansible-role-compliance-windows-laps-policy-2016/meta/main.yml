@@ -3,8 +3,8 @@ galaxy_info:
   author: Richard M. Williams
   role_name: ansible-role-compliance-windows-laps-policy-2016
   description: Windows 2016 Check and Remediation for the CIS LAPS section.
-  company: IBM Corp
-  license: IBM Intellectual Property
+  company: 
+  license: 
   min_ansible_version: 1.8
   platforms:
     - name: Windows
