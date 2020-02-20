@@ -2,7 +2,7 @@
 - ansible-collection-compliance-windows-2016
 
 # Description:
-This playbook is a colleccion of windows 2016 CIS compliance roles. Group
+This playbook is a collection of windows 2016 CIS compliance roles. Group
 Policy settings may override these local settings. When the role's "remediate"
 variable is set to "YES", the role will try to remediate the server's setting(s)
 according to the CIS standards.  Each role has a defaults/main.yml file which
